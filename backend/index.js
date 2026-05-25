@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 
+const playerRoutes = require("./routes/playerRoutes");
+
 const app = express();
 
 app.use(cors());
@@ -10,12 +12,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Football Intelligence API running" });
 });
 
-app.get("/players", (req, res) => {
-  res.json([
-    { name: "Messi", goals: 821 },
-    { name: "Ronaldo", goals: 895 }
-  ]);
-});
+app.use("/players", playerRoutes);
 
 app.get("/matches", (req, res) => {
   res.json([
