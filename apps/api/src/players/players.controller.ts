@@ -8,29 +8,29 @@ export class PlayersController {
 
   @Get()
   getAllPlayers() {
-    return this.playersService.getAllPlayers();
+    return this.playersService.findAll();
   }
 
   @Get(':id')
   getPlayerById(@Param('id') id: string) {
-    return this.playersService.getPlayerById(Number(id));
+    return this.playersService.findOne(Number(id));
   }
 
   @Post()
   createPlayer(@Body() playerData: CreatePlayerDto) {
-    return this.playersService.createPlayer(playerData);
+    return this.playersService.create(playerData);
   }
 
   @Put(':id')
-updatePlayer(
-  @Param('id') id: string,
-  @Body() playerData: CreatePlayerDto,
-) {
-  return this.playersService.updatePlayer(Number(id), playerData);
-}
+  updatePlayer(
+    @Param('id') id: string,
+    @Body() playerData: CreatePlayerDto,
+  ) {
+    return this.playersService.update(Number(id), playerData);
+  }
 
-@Delete(':id')
-deletePlayer(@Param('id') id: string) {
-  return this.playersService.deletePlayer(Number(id));
-}
+  @Delete(':id')
+  deletePlayer(@Param('id') id: string) {
+    return this.playersService.remove(Number(id));
+  }
 }

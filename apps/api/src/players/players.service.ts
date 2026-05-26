@@ -1,63 +1,36 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PlayersService {
-  private players = [
-    { id: 1, name: 'Messi', goals: 821 },
-    { id: 2, name: 'Ronaldo', goals: 895 },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  getAllPlayers() {
-    return this.players;
+  findAll() {
+    return this.prisma.player.findMany();
   }
 
-  getPlayerById(id: number) {
-    const player = this.players.find((player) => player.id === id);
-
-    if (!player) {
-      throw new NotFoundException('Player not found');
-    }
-
-    return player;
+  findOne(id: number) {
+    return this.prisma.player.findUnique({
+      where: { id },
+    });
   }
 
-  createPlayer(playerData: { name: string; goals: number }) {
-    const newPlayer = {
-      id: this.players.length + 1,
-      ...playerData,
-    };
-
-    this.players.push(newPlayer);
-
-    return newPlayer;
+  create(data: { name: string; goals: number }) {
+    return this.prisma.player.create({
+      data,
+    });
   }
 
-  updatePlayer(id: number, playerData: { name: string; goals: number }) {
-  const playerIndex = this.players.findIndex((player) => player.id === id);
-
-  if (playerIndex === -1) {
-    throw new NotFoundException('Player not found');
+  update(id: number, data: { name?: string; goals?: number }) {
+    return this.prisma.player.update({
+      where: { id },
+      data,
+    });
   }
 
-  this.players[playerIndex] = {
-    id,
-    ...playerData,
-  };
-
-  return this.players[playerIndex];
-}
-
-deletePlayer(id: number) {
-  const playerIndex = this.players.findIndex((player) => player.id === id);
-
-  if (playerIndex === -1) {
-    throw new NotFoundException('Player not found');
+  remove(id: number) {
+    return this.prisma.player.delete({
+      where: { id },
+    });
   }
-
-  this.players.splice(playerIndex, 1);
-
-  return {
-    message: 'Player deleted successfully',
-  };
-}
 }
