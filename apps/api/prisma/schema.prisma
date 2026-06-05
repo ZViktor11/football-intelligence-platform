@@ -8,8 +8,72 @@ datasource db {
   provider = "postgresql"
 }
 
+model League {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  teams Team[]
+}
+
+model Team {
+  id   Int     @id @default(autoincrement())
+  name String
+  city String?
+
+  leagueId Int?
+  league   League? @relation(fields: [leagueId], references: [id])
+
+  players Player[]
+  events  Event[]
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
 model Player {
   id    Int    @id @default(autoincrement())
   name  String
-  goals Int
+  goals Int    @default(0)
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id])
+
+  events Event[]
+}
+
+model Match {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  homeScore Int      @default(0)
+  awayScore Int      @default(0)
+
+  homeTeamId Int
+  awayTeamId Int
+
+  homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  events Event[]
+}
+
+model Event {
+  id     Int       @id @default(autoincrement())
+  type   EventType
+  minute Int
+
+  matchId  Int
+  teamId   Int?
+  playerId Int?
+
+  match  Match   @relation(fields: [matchId], references: [id])
+  team   Team?   @relation(fields: [teamId], references: [id])
+  player Player? @relation(fields: [playerId], references: [id])
+}
+
+enum EventType {
+  GOAL
+  ASSIST
+  YELLOW_CARD
+  RED_CARD
+  SUBSTITUTION
 }
