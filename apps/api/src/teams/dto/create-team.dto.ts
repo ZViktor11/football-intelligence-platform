@@ -1,9 +1,14 @@
-import { IsString } from 'class-validator';
+import { IsString, IsOptional, IsInt } from 'class-validator';
 
 export class CreateTeamDto {
   @IsString()
-  name: string;
+  name!: string;
 
+  @IsOptional()
   @IsString()
-  city: string;
+  city?: string;
+
+  @IsOptional()
+  @IsInt()
+  leagueId?: number;
 }

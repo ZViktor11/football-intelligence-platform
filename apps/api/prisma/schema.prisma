@@ -24,10 +24,12 @@ model Team {
   league   League? @relation(fields: [leagueId], references: [id])
 
   players Player[]
-  events  Event[]
 
   homeMatches Match[] @relation("HomeTeam")
   awayMatches Match[] @relation("AwayTeam")
+
+  events  Event[]
+  lineups Lineup[]
 }
 
 model Player {
@@ -38,14 +40,23 @@ model Player {
   teamId Int?
   team   Team? @relation(fields: [teamId], references: [id])
 
-  events Event[]
+  eventsAsMainPlayer Event[] @relation("EventMainPlayer")
+  eventsAsPlayerIn   Event[] @relation("EventPlayerIn")
+  eventsAsPlayerOut  Event[] @relation("EventPlayerOut")
+
+  lineups Lineup[]
 }
 
 model Match {
-  id        Int      @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   date      DateTime
-  homeScore Int      @default(0)
-  awayScore Int      @default(0)
+  status    MatchStatus @default(SCHEDULED)
+
+  homeScore Int @default(0)
+  awayScore Int @default(0)
+
+  homePossession Int @default(50)
+  awayPossession Int @default(50)
 
   homeTeamId Int
   awayTeamId Int
@@ -53,7 +64,8 @@ model Match {
   homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
 
-  events Event[]
+  events  Event[]
+  lineups Lineup[]
 }
 
 model Event {
@@ -61,13 +73,41 @@ model Event {
   type   EventType
   minute Int
 
-  matchId  Int
-  teamId   Int?
-  playerId Int?
+  matchId Int
+  teamId  Int?
 
-  match  Match   @relation(fields: [matchId], references: [id])
-  team   Team?   @relation(fields: [teamId], references: [id])
-  player Player? @relation(fields: [playerId], references: [id])
+  playerId    Int?
+  playerInId  Int?
+  playerOutId Int?
+
+  match Match @relation(fields: [matchId], references: [id])
+  team  Team? @relation(fields: [teamId], references: [id])
+
+  player    Player? @relation("EventMainPlayer", fields: [playerId], references: [id])
+  playerIn  Player? @relation("EventPlayerIn", fields: [playerInId], references: [id])
+  playerOut Player? @relation("EventPlayerOut", fields: [playerOutId], references: [id])
+}
+
+model Lineup {
+  id Int @id @default(autoincrement())
+
+  matchId  Int
+  teamId   Int
+  playerId Int
+
+  isStarter Boolean @default(false)
+  position  String?
+
+  match  Match  @relation(fields: [matchId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  HALF_TIME
+  FINISHED
 }
 
 enum EventType {
@@ -76,4 +116,6 @@ enum EventType {
   YELLOW_CARD
   RED_CARD
   SUBSTITUTION
+  CORNER
+  OFFSIDE
 }
