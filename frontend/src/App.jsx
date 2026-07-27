@@ -5,7 +5,7 @@ function App() {
   const [players, setPlayers] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:5000/players")
+    fetch("http://localhost:3000/players")
       .then((response) => response.json())
       .then((data) => {
         setPlayers(data);
