@@ -8,114 +8,77 @@ datasource db {
   provider = "postgresql"
 }
 
-model League {
+model User {
+  id           Int     @id @default(autoincrement())
+  email        String  @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  isActive     Boolean @default(true)
+
+  roleAssignments RoleAssignment[]
+  refreshTokens   RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RoleAssignment {
+  id   Int  @id @default(autoincrement())
+  role Role
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  competitionId Int?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Competition {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  seasons         Season[]
+  roleAssignments RoleAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Season {
   id   Int    @id @default(autoincrement())
   name String
 
-  teams Team[]
+  competitionId Int
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([competitionId, name])
 }
 
-model Team {
-  id   Int     @id @default(autoincrement())
-  name String
-  city String?
-
-  leagueId Int?
-  league   League? @relation(fields: [leagueId], references: [id])
-
-  players Player[]
-
-  homeMatches Match[] @relation("HomeTeam")
-  awayMatches Match[] @relation("AwayTeam")
-
-  events  Event[]
-  lineups Lineup[]
-}
-
-model Player {
-  id    Int    @id @default(autoincrement())
-  name  String
-  goals Int    @default(0)
-
-  teamId Int?
-  team   Team? @relation(fields: [teamId], references: [id])
-
-  eventsAsMainPlayer Event[] @relation("EventMainPlayer")
-  eventsAsPlayerIn   Event[] @relation("EventPlayerIn")
-  eventsAsPlayerOut  Event[] @relation("EventPlayerOut")
-
-  lineups Lineup[]
-}
-
-model Match {
-  id        Int         @id @default(autoincrement())
-  date      DateTime
-  status    MatchStatus @default(SCHEDULED)
-
-  homeScore Int @default(0)
-  awayScore Int @default(0)
-
-  homePossession Int @default(50)
-  awayPossession Int @default(50)
-
-  homeTeamId Int
-  awayTeamId Int
-
-  homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
-
-  events  Event[]
-  lineups Lineup[]
-}
-
-model Event {
-  id     Int       @id @default(autoincrement())
-  type   EventType
-  minute Int
-
-  matchId Int
-  teamId  Int?
-
-  playerId    Int?
-  playerInId  Int?
-  playerOutId Int?
-
-  match Match @relation(fields: [matchId], references: [id])
-  team  Team? @relation(fields: [teamId], references: [id])
-
-  player    Player? @relation("EventMainPlayer", fields: [playerId], references: [id])
-  playerIn  Player? @relation("EventPlayerIn", fields: [playerInId], references: [id])
-  playerOut Player? @relation("EventPlayerOut", fields: [playerOutId], references: [id])
-}
-
-model Lineup {
-  id Int @id @default(autoincrement())
-
-  matchId  Int
-  teamId   Int
-  playerId Int
-
-  isStarter Boolean @default(false)
-  position  String?
-
-  match  Match  @relation(fields: [matchId], references: [id])
-  team   Team   @relation(fields: [teamId], references: [id])
-  player Player @relation(fields: [playerId], references: [id])
-}
-
-enum MatchStatus {
-  SCHEDULED
-  LIVE
-  HALF_TIME
-  FINISHED
-}
-
-enum EventType {
-  GOAL
-  ASSIST
-  YELLOW_CARD
-  RED_CARD
-  SUBSTITUTION
-  CORNER
-  OFFSIDE
+enum Role {
+  SYSTEM_ADMIN
+  COMPETITION_ADMIN
+  MATCH_ADMIN
 }
