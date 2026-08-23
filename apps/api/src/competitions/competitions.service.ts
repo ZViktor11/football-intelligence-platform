@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompetitionDto } from './dto/create-competition.dto';
+import { UpdateCompetitionDto } from './dto/update-competition.dto';
 
 @Injectable()
 export class CompetitionsService {
@@ -38,4 +39,13 @@ export class CompetitionsService {
 
     return competition;
   }
+
+  async update(id: number, updateCompetitionDto: UpdateCompetitionDto) {
+  await this.findOne(id);
+
+  return this.prisma.competition.update({
+    where: { id },
+    data: updateCompetitionDto,
+  });
+}
 }
