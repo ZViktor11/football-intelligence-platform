@@ -13,6 +13,9 @@ import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { Role } from '../../generated/prisma/client';
+import { Roles } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -34,4 +37,13 @@ export class AuthController {
   getProfile(@Req() request: Request) {
     return request['user'];
   }
+
+  @Get('admin-test')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SYSTEM_ADMIN)
+    adminTest() {
+    return {
+        message: 'System admin access granted',
+    };
+    }
 }

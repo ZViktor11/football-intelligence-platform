@@ -77,14 +77,26 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        isActive: user.isActive,
-      },
+        accessToken,
+        user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            isActive: user.isActive,
+        },
     };
   }
+
+  async getUserRoles(userId: number) {
+  return this.prisma.roleAssignment.findMany({
+    where: {
+      userId,
+    },
+    select: {
+      role: true,
+      competitionId: true,
+    },
+  });
+}
 }
