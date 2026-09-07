@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompetitionDto } from './dto/create-competition.dto';
 import { UpdateCompetitionDto } from './dto/update-competition.dto';
@@ -18,6 +22,9 @@ export class CompetitionsService {
 
   findAll() {
     return this.prisma.competition.findMany({
+      include: {
+        seasons: true,
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -25,11 +32,29 @@ export class CompetitionsService {
   }
 
   async findOne(id: number) {
-    const competition = await this.prisma.competition.findUnique({
-      where: {
-        id,
-      },
-    });
+    const competition =
+      await this.prisma.competition.findUnique({
+        where: { id },
+        include: {
+          seasons: {
+            include: {
+              teams: true,
+              matches: {
+                include: {
+                  homeTeam: true,
+                  awayTeam: true,
+                },
+                orderBy: {
+                  date: 'asc',
+                },
+              },
+            },
+            orderBy: {
+              startsAt: 'desc',
+            },
+          },
+        },
+      });
 
     if (!competition) {
       throw new NotFoundException(
@@ -40,12 +65,15 @@ export class CompetitionsService {
     return competition;
   }
 
-  async update(id: number, updateCompetitionDto: UpdateCompetitionDto) {
-  await this.findOne(id);
+  async update(
+    id: number,
+    updateCompetitionDto: UpdateCompetitionDto,
+  ) {
+    await this.findOne(id);
 
-  return this.prisma.competition.update({
-    where: { id },
-    data: updateCompetitionDto,
-  });
-}
+    return this.prisma.competition.update({
+      where: { id },
+      data: updateCompetitionDto,
+    });
+  }
 }

@@ -28,18 +28,41 @@ export class TeamsService {
       },
     });
   }
+
   findAll() {
-  return this.prisma.team.findMany({
-    include: {
-      season: {
-        include: {
-          competition: true,
+    return this.prisma.team.findMany({
+      include: {
+        season: {
+          include: {
+            competition: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
-}
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async findOne(id: number) {
+    const team = await this.prisma.team.findUnique({
+      where: { id },
+      include: {
+        season: {
+          include: {
+            competition: true,
+          },
+        },
+        players: true,
+      },
+    });
+
+    if (!team) {
+      throw new NotFoundException(
+        `Team with ID ${id} not found`,
+      );
+    }
+
+    return team;
+  }
 }

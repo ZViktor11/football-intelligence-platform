@@ -7,6 +7,12 @@ import { MatchStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMatchDto } from './dto/create-match.dto';
 
+interface MatchFilters {
+  seasonId?: number;
+  teamId?: number;
+  status?: MatchStatus;
+}
+
 @Injectable()
 export class MatchesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -62,36 +68,105 @@ export class MatchesService {
     });
   }
 
-async updateStatus(id: number, status: MatchStatus) {
-  const match = await this.prisma.match.findUnique({
-    where: { id },
-  });
+  async findAll(filters: MatchFilters = {}) {
+    const { seasonId, teamId, status } = filters;
 
-  if (!match) {
-    throw new NotFoundException('Match not found');
+    return this.prisma.match.findMany({
+      where: {
+        ...(seasonId !== undefined && {
+          seasonId,
+        }),
+
+        ...(status !== undefined && {
+          status,
+        }),
+
+        ...(teamId !== undefined && {
+          OR: [
+            {
+              homeTeamId: teamId,
+            },
+            {
+              awayTeamId: teamId,
+            },
+          ],
+        }),
+      },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        season: {
+          include: {
+            competition: true,
+          },
+        },
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
   }
 
-  const allowedTransitions: Record<MatchStatus, MatchStatus[]> = {
-  SCHEDULED: [MatchStatus.PRE_MATCH],
-  PRE_MATCH: [MatchStatus.LIVE],
-  LIVE: [MatchStatus.HALF_TIME, MatchStatus.FINISHED],
-  HALF_TIME: [MatchStatus.LIVE],
-  FINISHED: [],
-};
+  async findOne(id: number) {
+    const match = await this.prisma.match.findUnique({
+      where: { id },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        season: {
+          include: {
+            competition: true,
+          },
+        },
+        events: {
+          include: {
+            player: true,
+          },
+          orderBy: [
+            { minute: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        },
+      },
+    });
 
-  const allowedNextStatuses = allowedTransitions[match.status];
+    if (!match) {
+      throw new NotFoundException(`Match with ID ${id} not found`);
+    }
 
-  if (!allowedNextStatuses.includes(status)) {
-    throw new BadRequestException(
-      `Invalid match status transition: ${match.status} -> ${status}`,
-    );
+    return match;
   }
 
-  return this.prisma.match.update({
-    where: { id },
-    data: {
-      status,
-    },
-  });
-}
+  async updateStatus(id: number, status: MatchStatus) {
+    const match = await this.prisma.match.findUnique({
+      where: { id },
+    });
+
+    if (!match) {
+      throw new NotFoundException('Match not found');
+    }
+
+    const allowedTransitions: Record<MatchStatus, MatchStatus[]> = {
+      SCHEDULED: [MatchStatus.PRE_MATCH],
+      PRE_MATCH: [MatchStatus.LIVE],
+      LIVE: [MatchStatus.HALF_TIME, MatchStatus.FINISHED],
+      HALF_TIME: [MatchStatus.LIVE],
+      FINISHED: [],
+    };
+
+    const allowedNextStatuses = allowedTransitions[match.status];
+
+    if (!allowedNextStatuses.includes(status)) {
+      throw new BadRequestException(
+        `Invalid match status transition: ${match.status} -> ${status}`,
+      );
+    }
+
+    return this.prisma.match.update({
+      where: { id },
+      data: {
+        status,
+      },
+    });
+  }
 }

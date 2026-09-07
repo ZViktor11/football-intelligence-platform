@@ -9,21 +9,22 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-
 import { Role } from '../../generated/prisma/client';
+
 import { MatchEventsService } from './match-events.service';
 import { CreateMatchEventDto } from './dto/create-match-event.dto';
 import { UpdateMatchEventDto } from './dto/update-match-event.dto';
+
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('match-events')
-@UseGuards(AuthGuard, RolesGuard)
 export class MatchEventsController {
   constructor(private readonly matchEventsService: MatchEventsService) {}
 
   @Post()
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(
     Role.SYSTEM_ADMIN,
     Role.COMPETITION_ADMIN,
@@ -41,6 +42,7 @@ export class MatchEventsController {
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(
     Role.SYSTEM_ADMIN,
     Role.COMPETITION_ADMIN,
@@ -50,10 +52,14 @@ export class MatchEventsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMatchEventDto: UpdateMatchEventDto,
   ) {
-    return this.matchEventsService.update(id, updateMatchEventDto);
+    return this.matchEventsService.update(
+      id,
+      updateMatchEventDto,
+    );
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(
     Role.SYSTEM_ADMIN,
     Role.COMPETITION_ADMIN,

@@ -1,13 +1,15 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { Role } from '../../generated/prisma/client';
+import { MatchStatus, Role } from '../../generated/prisma/client';
 
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
@@ -18,17 +20,36 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('matches')
-@UseGuards(AuthGuard, RolesGuard)
 export class MatchesController {
   constructor(private readonly matchesService: MatchesService) {}
 
   @Post()
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.SYSTEM_ADMIN)
   create(@Body() createMatchDto: CreateMatchDto) {
     return this.matchesService.create(createMatchDto);
   }
 
+  @Get()
+  findAll(
+    @Query('seasonId') seasonId?: string,
+    @Query('teamId') teamId?: string,
+    @Query('status') status?: MatchStatus,
+  ) {
+    return this.matchesService.findAll({
+      seasonId: seasonId ? Number(seasonId) : undefined,
+      teamId: teamId ? Number(teamId) : undefined,
+      status,
+    });
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.matchesService.findOne(id);
+  }
+
   @Patch(':id/status')
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(
     Role.SYSTEM_ADMIN,
     Role.COMPETITION_ADMIN,

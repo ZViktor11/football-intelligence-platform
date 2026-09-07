@@ -2,16 +2,19 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Role } from '../../generated/prisma/client';
+
+import { TeamsService } from './teams.service';
+import { CreateTeamDto } from './dto/create-team.dto';
 
 import { AuthGuard } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { Role } from '../../generated/prisma/client';
-import { CreateTeamDto } from './dto/create-team.dto';
-import { TeamsService } from './teams.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('teams')
 export class TeamsController {
@@ -19,7 +22,10 @@ export class TeamsController {
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN)
+  @Roles(
+    Role.SYSTEM_ADMIN,
+    Role.COMPETITION_ADMIN,
+  )
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);
   }
@@ -27,5 +33,10 @@ export class TeamsController {
   @Get()
   findAll() {
     return this.teamsService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.teamsService.findOne(id);
   }
 }

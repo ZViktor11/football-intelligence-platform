@@ -2,16 +2,19 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Role } from '../../generated/prisma/client';
+
+import { SeasonsService } from './seasons.service';
+import { CreateSeasonDto } from './dto/create-season.dto';
 
 import { AuthGuard } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { Role } from '../../generated/prisma/client';
-import { CreateSeasonDto } from './dto/create-season.dto';
-import { SeasonsService } from './seasons.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('seasons')
 export class SeasonsController {
@@ -19,7 +22,10 @@ export class SeasonsController {
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN)
+  @Roles(
+    Role.SYSTEM_ADMIN,
+    Role.COMPETITION_ADMIN,
+  )
   create(@Body() createSeasonDto: CreateSeasonDto) {
     return this.seasonsService.create(createSeasonDto);
   }
@@ -27,5 +33,10 @@ export class SeasonsController {
   @Get()
   findAll() {
     return this.seasonsService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.seasonsService.findOne(id);
   }
 }

@@ -1,4 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
@@ -40,8 +43,35 @@ export class SeasonsService {
         competition: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        startsAt: 'desc',
       },
     });
+  }
+
+  async findOne(id: number) {
+    const season = await this.prisma.season.findUnique({
+      where: { id },
+      include: {
+        competition: true,
+        teams: true,
+        matches: {
+          include: {
+            homeTeam: true,
+            awayTeam: true,
+          },
+          orderBy: {
+            date: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!season) {
+      throw new NotFoundException(
+        `Season with ID ${id} not found`,
+      );
+    }
+
+    return season;
   }
 }
