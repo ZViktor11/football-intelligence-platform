@@ -70,6 +70,9 @@ model Season {
 
   startsAt DateTime?
   endsAt   DateTime?
+  matches  Match[]
+
+  teams Team[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,8 +80,96 @@ model Season {
   @@unique([competitionId, name])
 }
 
+model Team {
+  id   Int     @id @default(autoincrement())
+  name String
+  city String?
+
+  seasonId    Int
+  season      Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  homeMatches Match[] @relation("HomeTeamMatches")
+  awayMatches Match[] @relation("AwayTeamMatches")
+
+  players Player[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([seasonId, name])
+}
+
+model Player {
+  id        Int       @id @default(autoincrement())
+  firstName String
+  lastName  String
+  birthDate DateTime?
+  position  String?
+  isActive  Boolean   @default(true)
+
+  matchEvents MatchEvent[]
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Match {
+  id Int @id @default(autoincrement())
+
+  date   DateTime
+  status MatchStatus @default(SCHEDULED)
+
+  homeScore Int @default(0)
+  awayScore Int @default(0)
+
+  homeTeamId Int
+  homeTeam   Team @relation("HomeTeamMatches", fields: [homeTeamId], references: [id])
+
+  awayTeamId Int
+  awayTeam   Team @relation("AwayTeamMatches", fields: [awayTeamId], references: [id])
+
+  seasonId Int
+  season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events MatchEvent[]
+}
+
+model MatchEvent {
+  id        Int            @id @default(autoincrement())
+  type      MatchEventType
+  minute    Int?
+  matchId   Int
+  playerId  Int?
+
+  match     Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player    Player?        @relation(fields: [playerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
 enum Role {
   SYSTEM_ADMIN
   COMPETITION_ADMIN
   MATCH_ADMIN
+}
+
+enum MatchStatus {
+  SCHEDULED
+  PRE_MATCH
+  LIVE
+  HALF_TIME
+  FINISHED
+}
+
+enum MatchEventType {
+  GOAL
+  YELLOW_CARD
+  RED_CARD
+  SUBSTITUTION
 }
