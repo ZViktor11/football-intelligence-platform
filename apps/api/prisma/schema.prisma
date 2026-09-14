@@ -16,8 +16,9 @@ model User {
   lastName     String?
   isActive     Boolean @default(true)
 
-  roleAssignments RoleAssignment[]
-  refreshTokens   RefreshToken[]
+  roleAssignments       RoleAssignment[]
+  refreshTokens         RefreshToken[]
+  matchAdminAssignments MatchAdminAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -133,24 +134,39 @@ model Match {
   seasonId Int
   season   Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
+  events                MatchEvent[]
+  matchAdminAssignments MatchAdminAssignment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  events MatchEvent[]
 }
 
 model MatchEvent {
-  id        Int            @id @default(autoincrement())
-  type      MatchEventType
-  minute    Int?
-  matchId   Int
-  playerId  Int?
+  id       Int            @id @default(autoincrement())
+  type     MatchEventType
+  minute   Int?
+  matchId  Int
+  playerId Int?
 
-  match     Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  player    Player?        @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  match  Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
 
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MatchAdminAssignment {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, matchId])
 }
 
 enum Role {

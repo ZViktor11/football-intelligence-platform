@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { RolesGuard } from './roles.guard';
+import { MatchAccessGuard } from './match-access.guard';
 
 @Module({
   imports: [
@@ -19,12 +20,14 @@ import { RolesGuard } from './roles.guard';
     AuthService,
     AuthGuard,
     RolesGuard,
+    MatchAccessGuard,
   ],
   controllers: [AuthController],
   exports: [
     AuthService,
     AuthGuard,
     RolesGuard,
+    MatchAccessGuard,
     JwtModule,
   ],
 })
