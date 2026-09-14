@@ -19,6 +19,49 @@ export class MatchEventsService {
     }
   }
 
+  private async recalculateScore(matchId: number) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+    });
+
+    if (!match) {
+      throw new NotFoundException('Match not found');
+    }
+
+    const goalEvents = await this.prisma.matchEvent.findMany({
+      where: {
+        matchId,
+        type: 'GOAL',
+      },
+      include: {
+        player: true,
+      },
+    });
+
+    let homeScore = 0;
+    let awayScore = 0;
+
+    for (const goal of goalEvents) {
+      if (!goal.player) {
+        continue;
+      }
+
+      if (goal.player.teamId === match.homeTeamId) {
+        homeScore++;
+      } else if (goal.player.teamId === match.awayTeamId) {
+        awayScore++;
+      }
+    }
+
+    await this.prisma.match.update({
+      where: { id: matchId },
+      data: {
+        homeScore,
+        awayScore,
+      },
+    });
+  }
+
   async findByMatch(matchId: number) {
     const match = await this.prisma.match.findUnique({
       where: { id: matchId },
@@ -30,10 +73,7 @@ export class MatchEventsService {
 
     return this.prisma.matchEvent.findMany({
       where: { matchId },
-      orderBy: [
-        { minute: 'asc' },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ minute: 'asc' }, { createdAt: 'asc' }],
       include: {
         player: true,
       },
@@ -56,6 +96,15 @@ export class MatchEventsService {
 
     this.ensureMatchIsEditable(match.status);
 
+    if (
+      data.minute !== undefined &&
+      (data.minute < 0 || data.minute > 120)
+    ) {
+      throw new BadRequestException(
+        'Match event minute must be between 0 and 120',
+      );
+    }
+
     if (data.playerId) {
       const player = await this.prisma.player.findUnique({
         where: { id: data.playerId },
@@ -76,7 +125,7 @@ export class MatchEventsService {
       }
     }
 
-    return this.prisma.matchEvent.create({
+    const event = await this.prisma.matchEvent.create({
       data: {
         type: data.type,
         minute: data.minute,
@@ -84,6 +133,10 @@ export class MatchEventsService {
         playerId: data.playerId,
       },
     });
+
+    await this.recalculateScore(data.matchId);
+
+    return event;
   }
 
   async update(
@@ -107,6 +160,15 @@ export class MatchEventsService {
 
     this.ensureMatchIsEditable(event.match.status);
 
+    if (
+      data.minute !== undefined &&
+      (data.minute < 0 || data.minute > 120)
+    ) {
+      throw new BadRequestException(
+        'Match event minute must be between 0 and 120',
+      );
+    }
+
     if (data.playerId) {
       const player = await this.prisma.player.findUnique({
         where: { id: data.playerId },
@@ -127,10 +189,14 @@ export class MatchEventsService {
       }
     }
 
-    return this.prisma.matchEvent.update({
+    const updatedEvent = await this.prisma.matchEvent.update({
       where: { id },
       data,
     });
+
+    await this.recalculateScore(event.matchId);
+
+    return updatedEvent;
   }
 
   async remove(id: number) {
@@ -147,8 +213,12 @@ export class MatchEventsService {
 
     this.ensureMatchIsEditable(event.match.status);
 
-    return this.prisma.matchEvent.delete({
+    const deletedEvent = await this.prisma.matchEvent.delete({
       where: { id },
     });
+
+    await this.recalculateScore(event.matchId);
+
+    return deletedEvent;
   }
 }
