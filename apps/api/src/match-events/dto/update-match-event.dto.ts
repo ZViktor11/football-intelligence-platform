@@ -27,6 +27,10 @@ export class UpdateMatchEventDto {
 
   @IsOptional()
   @IsInt()
+  staffMemberId?: number;
+
+  @IsOptional()
+  @IsInt()
   playerOutId?: number;
 
   @IsOptional()

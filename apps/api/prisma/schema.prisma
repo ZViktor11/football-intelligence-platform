@@ -92,6 +92,7 @@ model Team {
   awayMatches Match[] @relation("AwayTeamMatches")
 
   players     Player[]
+  staffMembers StaffMember[]
   matchEvents MatchEvent[]
 
   createdAt DateTime @default(now())
@@ -114,6 +115,22 @@ model Player {
 
   teamId Int?
   team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StaffMember {
+  id        Int       @id @default(autoincrement())
+  firstName String
+  lastName  String
+  role      StaffRole
+  isActive  Boolean   @default(true)
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  matchEvents MatchEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -145,20 +162,22 @@ model Match {
 }
 
 model MatchEvent {
-  id          Int            @id @default(autoincrement())
-  type        MatchEventType
-  minute      Int?
-  matchId     Int
-  teamId      Int?
-  playerId    Int?
-  playerOutId Int?
-  playerInId  Int?
+  id            Int            @id @default(autoincrement())
+  type          MatchEventType
+  minute        Int?
+  matchId       Int
+  teamId        Int?
+  playerId      Int?
+  staffMemberId Int?
+  playerOutId   Int?
+  playerInId    Int?
 
-  match     Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  team      Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  player    Player? @relation("EventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
-  playerOut Player? @relation("SubstitutionPlayerOut", fields: [playerOutId], references: [id], onDelete: SetNull)
-  playerIn  Player? @relation("SubstitutionPlayerIn", fields: [playerInId], references: [id], onDelete: SetNull)
+  match       Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team        Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  player      Player?      @relation("EventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  playerOut   Player?      @relation("SubstitutionPlayerOut", fields: [playerOutId], references: [id], onDelete: SetNull)
+  playerIn    Player?      @relation("SubstitutionPlayerIn", fields: [playerInId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -197,4 +216,13 @@ enum MatchEventType {
   YELLOW_CARD
   RED_CARD
   SUBSTITUTION
+}
+
+enum StaffRole {
+  HEAD_COACH
+  ASSISTANT_COACH
+  GOALKEEPER_COACH
+  PHYSIO
+  TEAM_MANAGER
+  OTHER
 }
