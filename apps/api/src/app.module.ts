@@ -13,6 +13,7 @@ import { PlayersModule } from './players/players.module';
 import { MatchesModule } from './matches/matches.module';
 import { MatchEventsModule } from './match-events/match-events.module';
 import { StaffMembersModule } from './staff-members/staff-members.module';
+import { MatchSquadsModule } from './match-squads/match-squads.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { StaffMembersModule } from './staff-members/staff-members.module';
     MatchesModule,
     MatchEventsModule,
     StaffMembersModule,
+    MatchSquadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

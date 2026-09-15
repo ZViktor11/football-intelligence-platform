@@ -158,12 +158,76 @@ export class MatchEventsService {
     }
   }
 
+  private async getPlayersOnPitch(
+    matchId: number,
+    teamId: number,
+    excludedEventId?: number,
+  ) {
+    const squad =
+      await this.prisma.matchSquadPlayer.findMany({
+        where: {
+          matchId,
+          teamId,
+        },
+      });
+
+    const onPitch = new Set<number>();
+
+    for (const squadPlayer of squad) {
+      if (squadPlayer.role === 'STARTER') {
+        onPitch.add(squadPlayer.playerId);
+      }
+    }
+
+    const substitutions =
+      await this.prisma.matchEvent.findMany({
+        where: {
+          matchId,
+          teamId,
+          type: 'SUBSTITUTION',
+          ...(excludedEventId !== undefined
+            ? {
+                id: {
+                  not: excludedEventId,
+                },
+              }
+            : {}),
+        },
+        orderBy: [
+          {
+            minute: 'asc',
+          },
+          {
+            createdAt: 'asc',
+          },
+        ],
+      });
+
+    for (const substitution of substitutions) {
+      if (substitution.playerOutId !== null) {
+        onPitch.delete(
+          substitution.playerOutId,
+        );
+      }
+
+      if (substitution.playerInId !== null) {
+        onPitch.add(
+          substitution.playerInId,
+        );
+      }
+    }
+
+    return onPitch;
+  }
+
   private async validateSubstitution(
+    matchId: number,
     teamId: number | undefined,
     playerId: number | undefined,
     staffMemberId: number | undefined,
     playerOutId: number | undefined,
     playerInId: number | undefined,
+    excludedEventId?: number,
   ) {
     if (teamId === undefined) {
       throw new BadRequestException(
@@ -203,6 +267,7 @@ export class MatchEventsService {
 
     const playerOut =
       await this.getPlayer(playerOutId);
+
     const playerIn =
       await this.getPlayer(playerInId);
 
@@ -217,15 +282,74 @@ export class MatchEventsService {
         'Player entering the field does not belong to the selected team',
       );
     }
+
+    const playerOutSquadEntry =
+      await this.prisma.matchSquadPlayer.findUnique({
+        where: {
+          matchId_playerId: {
+            matchId,
+            playerId: playerOutId,
+          },
+        },
+      });
+
+    if (
+      !playerOutSquadEntry ||
+      playerOutSquadEntry.teamId !== teamId
+    ) {
+      throw new BadRequestException(
+        'Player leaving the field is not selected for this match',
+      );
+    }
+
+    const playerInSquadEntry =
+      await this.prisma.matchSquadPlayer.findUnique({
+        where: {
+          matchId_playerId: {
+            matchId,
+            playerId: playerInId,
+          },
+        },
+      });
+
+    if (
+      !playerInSquadEntry ||
+      playerInSquadEntry.teamId !== teamId
+    ) {
+      throw new BadRequestException(
+        'Player entering the field is not selected for this match',
+      );
+    }
+
+    const playersOnPitch =
+      await this.getPlayersOnPitch(
+        matchId,
+        teamId,
+        excludedEventId,
+      );
+
+    if (!playersOnPitch.has(playerOutId)) {
+      throw new BadRequestException(
+        'Player leaving the field is not currently on the pitch',
+      );
+    }
+
+    if (playersOnPitch.has(playerInId)) {
+      throw new BadRequestException(
+        'Player entering the field is already on the pitch',
+      );
+    }
   }
 
   private async validateEvent(
+    matchId: number,
     type: EventType,
     teamId: number | undefined,
     playerId: number | undefined,
     staffMemberId: number | undefined,
     playerOutId: number | undefined,
     playerInId: number | undefined,
+    excludedEventId?: number,
   ) {
     if (type === 'GOAL') {
       if (
@@ -269,11 +393,13 @@ export class MatchEventsService {
     }
 
     await this.validateSubstitution(
+      matchId,
       teamId,
       playerId,
       staffMemberId,
       playerOutId,
       playerInId,
+      excludedEventId,
     );
   }
 
@@ -283,7 +409,9 @@ export class MatchEventsService {
     });
 
     if (!match) {
-      throw new NotFoundException('Match not found');
+      throw new NotFoundException(
+        'Match not found',
+      );
     }
 
     const goalEvents =
@@ -317,12 +445,15 @@ export class MatchEventsService {
   }
 
   async findByMatch(matchId: number) {
-    const match = await this.prisma.match.findUnique({
-      where: { id: matchId },
-    });
+    const match =
+      await this.prisma.match.findUnique({
+        where: { id: matchId },
+      });
 
     if (!match) {
-      throw new NotFoundException('Match not found');
+      throw new NotFoundException(
+        'Match not found',
+      );
     }
 
     return this.prisma.matchEvent.findMany({
@@ -351,16 +482,24 @@ export class MatchEventsService {
     playerOutId?: number;
     playerInId?: number;
   }) {
-    const match = await this.prisma.match.findUnique({
-      where: { id: data.matchId },
-    });
+    const match =
+      await this.prisma.match.findUnique({
+        where: { id: data.matchId },
+      });
 
     if (!match) {
-      throw new NotFoundException('Match not found');
+      throw new NotFoundException(
+        'Match not found',
+      );
     }
 
-    this.ensureMatchIsEditable(match.status);
-    this.validateMinute(data.minute);
+    this.ensureMatchIsEditable(
+      match.status,
+    );
+
+    this.validateMinute(
+      data.minute,
+    );
 
     this.validateTeamBelongsToMatch(
       data.teamId,
@@ -369,6 +508,7 @@ export class MatchEventsService {
     );
 
     await this.validateEvent(
+      data.matchId,
       data.type,
       data.teamId,
       data.playerId,
@@ -385,13 +525,18 @@ export class MatchEventsService {
           matchId: data.matchId,
           teamId: data.teamId,
           playerId: data.playerId,
-          staffMemberId: data.staffMemberId,
-          playerOutId: data.playerOutId,
-          playerInId: data.playerInId,
+          staffMemberId:
+            data.staffMemberId,
+          playerOutId:
+            data.playerOutId,
+          playerInId:
+            data.playerInId,
         },
       });
 
-    await this.recalculateScore(data.matchId);
+    await this.recalculateScore(
+      data.matchId,
+    );
 
     return event;
   }
@@ -426,22 +571,33 @@ export class MatchEventsService {
       event.match.status,
     );
 
-    this.validateMinute(data.minute);
+    this.validateMinute(
+      data.minute,
+    );
 
     const finalType =
       data.type ?? event.type;
+
     const finalTeamId =
-      data.teamId ?? event.teamId ?? undefined;
+      data.teamId ??
+      event.teamId ??
+      undefined;
+
     const finalPlayerId =
-      data.playerId ?? event.playerId ?? undefined;
+      data.playerId ??
+      event.playerId ??
+      undefined;
+
     const finalStaffMemberId =
       data.staffMemberId ??
       event.staffMemberId ??
       undefined;
+
     const finalPlayerOutId =
       data.playerOutId ??
       event.playerOutId ??
       undefined;
+
     const finalPlayerInId =
       data.playerInId ??
       event.playerInId ??
@@ -454,12 +610,14 @@ export class MatchEventsService {
     );
 
     await this.validateEvent(
+      event.matchId,
       finalType,
       finalTeamId,
       finalPlayerId,
       finalStaffMemberId,
       finalPlayerOutId,
       finalPlayerInId,
+      event.id,
     );
 
     const updatedEvent =
