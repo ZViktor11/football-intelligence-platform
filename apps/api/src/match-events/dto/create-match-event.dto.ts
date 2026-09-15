@@ -26,4 +26,12 @@ export class CreateMatchEventDto {
   @IsOptional()
   @IsInt()
   playerId?: number;
+
+  @IsOptional()
+  @IsInt()
+  playerOutId?: number;
+
+  @IsOptional()
+  @IsInt()
+  playerInId?: number;
 }

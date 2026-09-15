@@ -5,6 +5,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+type EventType =
+  | 'GOAL'
+  | 'YELLOW_CARD'
+  | 'RED_CARD'
+  | 'SUBSTITUTION';
+
 @Injectable()
 export class MatchEventsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,7 +56,19 @@ export class MatchEventsService {
     }
   }
 
-  private async validatePlayer(
+  private async getPlayer(playerId: number) {
+    const player = await this.prisma.player.findUnique({
+      where: { id: playerId },
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    return player;
+  }
+
+  private async validateRegularPlayer(
     playerId: number | undefined,
     teamId: number | undefined,
     homeTeamId: number,
@@ -60,13 +78,7 @@ export class MatchEventsService {
       return;
     }
 
-    const player = await this.prisma.player.findUnique({
-      where: { id: playerId },
-    });
-
-    if (!player) {
-      throw new NotFoundException('Player not found');
-    }
+    const player = await this.getPlayer(playerId);
 
     const playerBelongsToMatch =
       player.teamId === homeTeamId ||
@@ -84,6 +96,65 @@ export class MatchEventsService {
     ) {
       throw new BadRequestException(
         'Player does not belong to the selected team',
+      );
+    }
+  }
+
+  private async validateSubstitution(
+    type: EventType,
+    teamId: number | undefined,
+    playerOutId: number | undefined,
+    playerInId: number | undefined,
+  ) {
+    if (type !== 'SUBSTITUTION') {
+      if (
+        playerOutId !== undefined ||
+        playerInId !== undefined
+      ) {
+        throw new BadRequestException(
+          'playerOutId and playerInId can only be used for substitutions',
+        );
+      }
+
+      return;
+    }
+
+    if (teamId === undefined) {
+      throw new BadRequestException(
+        'A substitution must have a team',
+      );
+    }
+
+    if (playerOutId === undefined) {
+      throw new BadRequestException(
+        'A substitution must have a player leaving the field',
+      );
+    }
+
+    if (playerInId === undefined) {
+      throw new BadRequestException(
+        'A substitution must have a player entering the field',
+      );
+    }
+
+    if (playerOutId === playerInId) {
+      throw new BadRequestException(
+        'Substitution players must be different',
+      );
+    }
+
+    const playerOut = await this.getPlayer(playerOutId);
+    const playerIn = await this.getPlayer(playerInId);
+
+    if (playerOut.teamId !== teamId) {
+      throw new BadRequestException(
+        'Player leaving the field does not belong to the selected team',
+      );
+    }
+
+    if (playerIn.teamId !== teamId) {
+      throw new BadRequestException(
+        'Player entering the field does not belong to the selected team',
       );
     }
   }
@@ -139,16 +210,20 @@ export class MatchEventsService {
       include: {
         team: true,
         player: true,
+        playerOut: true,
+        playerIn: true,
       },
     });
   }
 
   async create(data: {
-    type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
+    type: EventType;
     minute?: number;
     matchId: number;
     teamId?: number;
     playerId?: number;
+    playerOutId?: number;
+    playerInId?: number;
   }) {
     const match = await this.prisma.match.findUnique({
       where: { id: data.matchId },
@@ -177,11 +252,27 @@ export class MatchEventsService {
       );
     }
 
-    await this.validatePlayer(
+    if (
+      data.type === 'SUBSTITUTION' &&
+      data.playerId !== undefined
+    ) {
+      throw new BadRequestException(
+        'playerId cannot be used for substitutions',
+      );
+    }
+
+    await this.validateRegularPlayer(
       data.playerId,
       data.teamId,
       match.homeTeamId,
       match.awayTeamId,
+    );
+
+    await this.validateSubstitution(
+      data.type,
+      data.teamId,
+      data.playerOutId,
+      data.playerInId,
     );
 
     const event = await this.prisma.matchEvent.create({
@@ -191,6 +282,8 @@ export class MatchEventsService {
         matchId: data.matchId,
         teamId: data.teamId,
         playerId: data.playerId,
+        playerOutId: data.playerOutId,
+        playerInId: data.playerInId,
       },
     });
 
@@ -202,10 +295,12 @@ export class MatchEventsService {
   async update(
     id: number,
     data: {
-      type?: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
+      type?: EventType;
       minute?: number;
       teamId?: number;
       playerId?: number;
+      playerOutId?: number;
+      playerInId?: number;
     },
   ) {
     const event = await this.prisma.matchEvent.findUnique({
@@ -228,6 +323,10 @@ export class MatchEventsService {
       data.teamId ?? event.teamId ?? undefined;
     const finalPlayerId =
       data.playerId ?? event.playerId ?? undefined;
+    const finalPlayerOutId =
+      data.playerOutId ?? event.playerOutId ?? undefined;
+    const finalPlayerInId =
+      data.playerInId ?? event.playerInId ?? undefined;
 
     this.validateTeamBelongsToMatch(
       finalTeamId,
@@ -244,11 +343,27 @@ export class MatchEventsService {
       );
     }
 
-    await this.validatePlayer(
+    if (
+      finalType === 'SUBSTITUTION' &&
+      finalPlayerId !== undefined
+    ) {
+      throw new BadRequestException(
+        'playerId cannot be used for substitutions',
+      );
+    }
+
+    await this.validateRegularPlayer(
       finalPlayerId,
       finalTeamId,
       event.match.homeTeamId,
       event.match.awayTeamId,
+    );
+
+    await this.validateSubstitution(
+      finalType,
+      finalTeamId,
+      finalPlayerOutId,
+      finalPlayerInId,
     );
 
     const updatedEvent = await this.prisma.matchEvent.update({
