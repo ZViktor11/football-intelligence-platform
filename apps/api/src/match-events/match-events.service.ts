@@ -19,6 +19,75 @@ export class MatchEventsService {
     }
   }
 
+  private validateMinute(minute?: number) {
+    if (
+      minute !== undefined &&
+      (minute < 0 || minute > 120)
+    ) {
+      throw new BadRequestException(
+        'Match event minute must be between 0 and 120',
+      );
+    }
+  }
+
+  private validateTeamBelongsToMatch(
+    teamId: number | undefined,
+    homeTeamId: number,
+    awayTeamId: number,
+  ) {
+    if (teamId === undefined) {
+      return;
+    }
+
+    const teamBelongsToMatch =
+      teamId === homeTeamId ||
+      teamId === awayTeamId;
+
+    if (!teamBelongsToMatch) {
+      throw new BadRequestException(
+        'Team does not belong to this match',
+      );
+    }
+  }
+
+  private async validatePlayer(
+    playerId: number | undefined,
+    teamId: number | undefined,
+    homeTeamId: number,
+    awayTeamId: number,
+  ) {
+    if (playerId === undefined) {
+      return;
+    }
+
+    const player = await this.prisma.player.findUnique({
+      where: { id: playerId },
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    const playerBelongsToMatch =
+      player.teamId === homeTeamId ||
+      player.teamId === awayTeamId;
+
+    if (!playerBelongsToMatch) {
+      throw new BadRequestException(
+        'Player does not belong to either team in this match',
+      );
+    }
+
+    if (
+      teamId !== undefined &&
+      player.teamId !== teamId
+    ) {
+      throw new BadRequestException(
+        'Player does not belong to the selected team',
+      );
+    }
+  }
+
   private async recalculateScore(matchId: number) {
     const match = await this.prisma.match.findUnique({
       where: { id: matchId },
@@ -33,22 +102,15 @@ export class MatchEventsService {
         matchId,
         type: 'GOAL',
       },
-      include: {
-        player: true,
-      },
     });
 
     let homeScore = 0;
     let awayScore = 0;
 
     for (const goal of goalEvents) {
-      if (!goal.player) {
-        continue;
-      }
-
-      if (goal.player.teamId === match.homeTeamId) {
+      if (goal.teamId === match.homeTeamId) {
         homeScore++;
-      } else if (goal.player.teamId === match.awayTeamId) {
+      } else if (goal.teamId === match.awayTeamId) {
         awayScore++;
       }
     }
@@ -75,6 +137,7 @@ export class MatchEventsService {
       where: { matchId },
       orderBy: [{ minute: 'asc' }, { createdAt: 'asc' }],
       include: {
+        team: true,
         player: true,
       },
     });
@@ -84,6 +147,7 @@ export class MatchEventsService {
     type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
     minute?: number;
     matchId: number;
+    teamId?: number;
     playerId?: number;
   }) {
     const match = await this.prisma.match.findUnique({
@@ -96,40 +160,36 @@ export class MatchEventsService {
 
     this.ensureMatchIsEditable(match.status);
 
+    this.validateMinute(data.minute);
+
+    this.validateTeamBelongsToMatch(
+      data.teamId,
+      match.homeTeamId,
+      match.awayTeamId,
+    );
+
     if (
-      data.minute !== undefined &&
-      (data.minute < 0 || data.minute > 120)
+      data.type === 'GOAL' &&
+      data.teamId === undefined
     ) {
       throw new BadRequestException(
-        'Match event minute must be between 0 and 120',
+        'A goal must have a team',
       );
     }
 
-    if (data.playerId) {
-      const player = await this.prisma.player.findUnique({
-        where: { id: data.playerId },
-      });
-
-      if (!player) {
-        throw new NotFoundException('Player not found');
-      }
-
-      const playerBelongsToMatch =
-        player.teamId === match.homeTeamId ||
-        player.teamId === match.awayTeamId;
-
-      if (!playerBelongsToMatch) {
-        throw new BadRequestException(
-          'Player does not belong to either team in this match',
-        );
-      }
-    }
+    await this.validatePlayer(
+      data.playerId,
+      data.teamId,
+      match.homeTeamId,
+      match.awayTeamId,
+    );
 
     const event = await this.prisma.matchEvent.create({
       data: {
         type: data.type,
         minute: data.minute,
         matchId: data.matchId,
+        teamId: data.teamId,
         playerId: data.playerId,
       },
     });
@@ -144,6 +204,7 @@ export class MatchEventsService {
     data: {
       type?: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
       minute?: number;
+      teamId?: number;
       playerId?: number;
     },
   ) {
@@ -160,34 +221,35 @@ export class MatchEventsService {
 
     this.ensureMatchIsEditable(event.match.status);
 
+    this.validateMinute(data.minute);
+
+    const finalType = data.type ?? event.type;
+    const finalTeamId =
+      data.teamId ?? event.teamId ?? undefined;
+    const finalPlayerId =
+      data.playerId ?? event.playerId ?? undefined;
+
+    this.validateTeamBelongsToMatch(
+      finalTeamId,
+      event.match.homeTeamId,
+      event.match.awayTeamId,
+    );
+
     if (
-      data.minute !== undefined &&
-      (data.minute < 0 || data.minute > 120)
+      finalType === 'GOAL' &&
+      finalTeamId === undefined
     ) {
       throw new BadRequestException(
-        'Match event minute must be between 0 and 120',
+        'A goal must have a team',
       );
     }
 
-    if (data.playerId) {
-      const player = await this.prisma.player.findUnique({
-        where: { id: data.playerId },
-      });
-
-      if (!player) {
-        throw new NotFoundException('Player not found');
-      }
-
-      const playerBelongsToMatch =
-        player.teamId === event.match.homeTeamId ||
-        player.teamId === event.match.awayTeamId;
-
-      if (!playerBelongsToMatch) {
-        throw new BadRequestException(
-          'Player does not belong to either team in this match',
-        );
-      }
-    }
+    await this.validatePlayer(
+      finalPlayerId,
+      finalTeamId,
+      event.match.homeTeamId,
+      event.match.awayTeamId,
+    );
 
     const updatedEvent = await this.prisma.matchEvent.update({
       where: { id },

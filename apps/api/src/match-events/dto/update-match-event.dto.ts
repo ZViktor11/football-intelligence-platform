@@ -1,4 +1,10 @@
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  Min,
+} from 'class-validator';
+
 import { MatchEventType } from '../../../generated/prisma/client';
 
 export class UpdateMatchEventDto {
@@ -10,6 +16,10 @@ export class UpdateMatchEventDto {
   @IsInt()
   @Min(0)
   minute?: number;
+
+  @IsOptional()
+  @IsInt()
+  teamId?: number;
 
   @IsOptional()
   @IsInt()
