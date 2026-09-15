@@ -149,30 +149,58 @@ export class MatchAccessGuard implements CanActivate {
       return matchId;
     }
 
-    const eventId = Number(request.params.id);
+    if (source === 'eventIdParam') {
+      const eventId = Number(request.params.id);
 
-    if (!Number.isInteger(eventId)) {
+      if (!Number.isInteger(eventId)) {
+        throw new NotFoundException(
+          'Match event not found',
+        );
+      }
+
+      const event =
+        await this.prisma.matchEvent.findUnique({
+          where: {
+            id: eventId,
+          },
+          select: {
+            matchId: true,
+          },
+        });
+
+      if (!event) {
+        throw new NotFoundException(
+          'Match event not found',
+        );
+      }
+
+      return event.matchId;
+    }
+
+    const squadEntryId = Number(request.params.id);
+
+    if (!Number.isInteger(squadEntryId)) {
       throw new NotFoundException(
-        'Match event not found',
+        'Match squad player not found',
       );
     }
 
-    const event =
-      await this.prisma.matchEvent.findUnique({
+    const squadEntry =
+      await this.prisma.matchSquadPlayer.findUnique({
         where: {
-          id: eventId,
+          id: squadEntryId,
         },
         select: {
           matchId: true,
         },
       });
 
-    if (!event) {
+    if (!squadEntry) {
       throw new NotFoundException(
-        'Match event not found',
+        'Match squad player not found',
       );
     }
 
-    return event.matchId;
+    return squadEntry.matchId;
   }
 }

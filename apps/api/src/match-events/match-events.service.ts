@@ -158,9 +158,10 @@ export class MatchEventsService {
     }
   }
 
-  private async getPlayersOnPitch(
+  private async getPlayersOnPitchAtMinute(
     matchId: number,
     teamId: number,
+    minute: number,
     excludedEventId?: number,
   ) {
     const squad =
@@ -185,6 +186,9 @@ export class MatchEventsService {
           matchId,
           teamId,
           type: 'SUBSTITUTION',
+          minute: {
+            lte: minute,
+          },
           ...(excludedEventId !== undefined
             ? {
                 id: {
@@ -222,6 +226,7 @@ export class MatchEventsService {
 
   private async validateSubstitution(
     matchId: number,
+    minute: number | undefined,
     teamId: number | undefined,
     playerId: number | undefined,
     staffMemberId: number | undefined,
@@ -229,6 +234,12 @@ export class MatchEventsService {
     playerInId: number | undefined,
     excludedEventId?: number,
   ) {
+    if (minute === undefined) {
+      throw new BadRequestException(
+        'A substitution must have a minute',
+      );
+    }
+
     if (teamId === undefined) {
       throw new BadRequestException(
         'A substitution must have a team',
@@ -322,9 +333,10 @@ export class MatchEventsService {
     }
 
     const playersOnPitch =
-      await this.getPlayersOnPitch(
+      await this.getPlayersOnPitchAtMinute(
         matchId,
         teamId,
+        minute,
         excludedEventId,
       );
 
@@ -344,6 +356,7 @@ export class MatchEventsService {
   private async validateEvent(
     matchId: number,
     type: EventType,
+    minute: number | undefined,
     teamId: number | undefined,
     playerId: number | undefined,
     staffMemberId: number | undefined,
@@ -394,6 +407,7 @@ export class MatchEventsService {
 
     await this.validateSubstitution(
       matchId,
+      minute,
       teamId,
       playerId,
       staffMemberId,
@@ -510,6 +524,7 @@ export class MatchEventsService {
     await this.validateEvent(
       data.matchId,
       data.type,
+      data.minute,
       data.teamId,
       data.playerId,
       data.staffMemberId,
@@ -578,6 +593,11 @@ export class MatchEventsService {
     const finalType =
       data.type ?? event.type;
 
+    const finalMinute =
+      data.minute ??
+      event.minute ??
+      undefined;
+
     const finalTeamId =
       data.teamId ??
       event.teamId ??
@@ -612,6 +632,7 @@ export class MatchEventsService {
     await this.validateEvent(
       event.matchId,
       finalType,
+      finalMinute,
       finalTeamId,
       finalPlayerId,
       finalStaffMemberId,

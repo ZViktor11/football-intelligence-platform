@@ -7,10 +7,21 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMatchSquadPlayerDto } from './dto/create-match-squad-player.dto';
+import { UpdateMatchSquadPlayerDto } from './dto/update-match-squad-player.dto';
 
 @Injectable()
 export class MatchSquadsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private ensureSquadIsEditable(status: string) {
+    const editableStatuses = ['SCHEDULED', 'PRE_MATCH'];
+
+    if (!editableStatuses.includes(status)) {
+      throw new BadRequestException(
+        'Match squad cannot be edited after the match has started',
+      );
+    }
+  }
 
   async create(
     createMatchSquadPlayerDto: CreateMatchSquadPlayerDto,
@@ -33,6 +44,8 @@ export class MatchSquadsService {
         `Match with ID ${matchId} not found`,
       );
     }
+
+    this.ensureSquadIsEditable(match.status);
 
     const teamBelongsToMatch =
       teamId === match.homeTeamId ||
@@ -124,6 +137,76 @@ export class MatchSquadsService {
           playerId: 'asc',
         },
       ],
+    });
+  }
+
+  async update(
+    id: number,
+    updateMatchSquadPlayerDto: UpdateMatchSquadPlayerDto,
+  ) {
+    const squadEntry =
+      await this.prisma.matchSquadPlayer.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          match: true,
+        },
+      });
+
+    if (!squadEntry) {
+      throw new NotFoundException(
+        `Match squad player with ID ${id} not found`,
+      );
+    }
+
+    this.ensureSquadIsEditable(
+      squadEntry.match.status,
+    );
+
+    return this.prisma.matchSquadPlayer.update({
+      where: {
+        id,
+      },
+      data: {
+        role: updateMatchSquadPlayerDto.role,
+      },
+      include: {
+        team: true,
+        player: true,
+      },
+    });
+  }
+
+  async remove(id: number) {
+    const squadEntry =
+      await this.prisma.matchSquadPlayer.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          match: true,
+        },
+      });
+
+    if (!squadEntry) {
+      throw new NotFoundException(
+        `Match squad player with ID ${id} not found`,
+      );
+    }
+
+    this.ensureSquadIsEditable(
+      squadEntry.match.status,
+    );
+
+    return this.prisma.matchSquadPlayer.delete({
+      where: {
+        id,
+      },
+      include: {
+        team: true,
+        player: true,
+      },
     });
   }
 }
