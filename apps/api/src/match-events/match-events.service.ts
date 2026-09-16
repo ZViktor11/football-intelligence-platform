@@ -82,79 +82,28 @@ export class MatchEventsService {
     return staffMember;
   }
 
-  private async validateGoal(
-    teamId: number | undefined,
-    playerId: number | undefined,
-    staffMemberId: number | undefined,
+  private async ensurePlayerIsSelectedForMatch(
+    matchId: number,
+    teamId: number,
+    playerId: number,
   ) {
-    if (teamId === undefined) {
+    const squadEntry =
+      await this.prisma.matchSquadPlayer.findUnique({
+        where: {
+          matchId_playerId: {
+            matchId,
+            playerId,
+          },
+        },
+      });
+
+    if (
+      !squadEntry ||
+      squadEntry.teamId !== teamId
+    ) {
       throw new BadRequestException(
-        'A goal must have a team',
+        'Player is not selected for this match',
       );
-    }
-
-    if (staffMemberId !== undefined) {
-      throw new BadRequestException(
-        'A goal cannot have a staff member as recipient',
-      );
-    }
-
-    if (playerId !== undefined) {
-      const player = await this.getPlayer(playerId);
-
-      if (player.teamId !== teamId) {
-        throw new BadRequestException(
-          'Goal scorer does not belong to the selected team',
-        );
-      }
-    }
-  }
-
-  private async validateCard(
-    teamId: number | undefined,
-    playerId: number | undefined,
-    staffMemberId: number | undefined,
-  ) {
-    if (teamId === undefined) {
-      throw new BadRequestException(
-        'A card must have a team',
-      );
-    }
-
-    const hasPlayer = playerId !== undefined;
-    const hasStaff = staffMemberId !== undefined;
-
-    if (!hasPlayer && !hasStaff) {
-      throw new BadRequestException(
-        'A card must have a player or staff member recipient',
-      );
-    }
-
-    if (hasPlayer && hasStaff) {
-      throw new BadRequestException(
-        'A card cannot have both a player and staff member recipient',
-      );
-    }
-
-    if (playerId !== undefined) {
-      const player = await this.getPlayer(playerId);
-
-      if (player.teamId !== teamId) {
-        throw new BadRequestException(
-          'Carded player does not belong to the selected team',
-        );
-      }
-    }
-
-    if (staffMemberId !== undefined) {
-      const staffMember =
-        await this.getStaffMember(staffMemberId);
-
-      if (staffMember.teamId !== teamId) {
-        throw new BadRequestException(
-          'Carded staff member does not belong to the selected team',
-        );
-      }
     }
   }
 
@@ -222,6 +171,118 @@ export class MatchEventsService {
     }
 
     return onPitch;
+  }
+
+  private async validateGoal(
+    matchId: number,
+    minute: number | undefined,
+    teamId: number | undefined,
+    playerId: number | undefined,
+    staffMemberId: number | undefined,
+    excludedEventId?: number,
+  ) {
+    if (teamId === undefined) {
+      throw new BadRequestException(
+        'A goal must have a team',
+      );
+    }
+
+    if (staffMemberId !== undefined) {
+      throw new BadRequestException(
+        'A goal cannot have a staff member as recipient',
+      );
+    }
+
+    if (playerId !== undefined) {
+      if (minute === undefined) {
+        throw new BadRequestException(
+          'A goal with a scorer must have a minute',
+        );
+      }
+
+      const player = await this.getPlayer(playerId);
+
+      if (player.teamId !== teamId) {
+        throw new BadRequestException(
+          'Goal scorer does not belong to the selected team',
+        );
+      }
+
+      await this.ensurePlayerIsSelectedForMatch(
+        matchId,
+        teamId,
+        playerId,
+      );
+
+      const playersOnPitch =
+        await this.getPlayersOnPitchAtMinute(
+          matchId,
+          teamId,
+          minute,
+          excludedEventId,
+        );
+
+      if (!playersOnPitch.has(playerId)) {
+        throw new BadRequestException(
+          'Goal scorer is not on the pitch at this minute',
+        );
+      }
+    }
+  }
+
+  private async validateCard(
+    matchId: number,
+    teamId: number | undefined,
+    playerId: number | undefined,
+    staffMemberId: number | undefined,
+  ) {
+    if (teamId === undefined) {
+      throw new BadRequestException(
+        'A card must have a team',
+      );
+    }
+
+    const hasPlayer = playerId !== undefined;
+    const hasStaff = staffMemberId !== undefined;
+
+    if (!hasPlayer && !hasStaff) {
+      throw new BadRequestException(
+        'A card must have a player or staff member recipient',
+      );
+    }
+
+    if (hasPlayer && hasStaff) {
+      throw new BadRequestException(
+        'A card cannot have both a player and staff member recipient',
+      );
+    }
+
+    if (playerId !== undefined) {
+      const player = await this.getPlayer(playerId);
+
+      if (player.teamId !== teamId) {
+        throw new BadRequestException(
+          'Carded player does not belong to the selected team',
+        );
+      }
+
+      await this.ensurePlayerIsSelectedForMatch(
+        matchId,
+        teamId,
+        playerId,
+      );
+    }
+
+    if (staffMemberId !== undefined) {
+      const staffMember =
+        await this.getStaffMember(staffMemberId);
+
+      if (staffMember.teamId !== teamId) {
+        throw new BadRequestException(
+          'Carded staff member does not belong to the selected team',
+        );
+      }
+    }
   }
 
   private async validateSubstitution(
@@ -375,9 +436,12 @@ export class MatchEventsService {
       }
 
       await this.validateGoal(
+        matchId,
+        minute,
         teamId,
         playerId,
         staffMemberId,
+        excludedEventId,
       );
 
       return;
@@ -397,6 +461,7 @@ export class MatchEventsService {
       }
 
       await this.validateCard(
+        matchId,
         teamId,
         playerId,
         staffMemberId,
