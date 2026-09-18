@@ -232,10 +232,17 @@ export class MatchEventsService {
 
   private async validateCard(
     matchId: number,
+    minute: number | undefined,
     teamId: number | undefined,
     playerId: number | undefined,
     staffMemberId: number | undefined,
   ) {
+    if (minute === undefined) {
+      throw new BadRequestException(
+        'A card must have a minute',
+      );
+    }
+
     if (teamId === undefined) {
       throw new BadRequestException(
         'A card must have a team',
@@ -462,6 +469,7 @@ export class MatchEventsService {
 
       await this.validateCard(
         matchId,
+        minute,
         teamId,
         playerId,
         staffMemberId,
