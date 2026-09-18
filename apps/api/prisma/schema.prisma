@@ -112,6 +112,7 @@ model Player {
   isActive  Boolean   @default(true)
 
   matchEvents           MatchEvent[] @relation("EventPlayer")
+  assistEvents          MatchEvent[] @relation("AssistPlayer")
   substitutionOutEvents MatchEvent[] @relation("SubstitutionPlayerOut")
   substitutionInEvents  MatchEvent[] @relation("SubstitutionPlayerIn")
   matchSquadEntries     MatchSquadPlayer[]
@@ -166,23 +167,25 @@ model Match {
 }
 
 model MatchEvent {
-  id            Int            @id @default(autoincrement())
-  type          MatchEventType
-  minute        Int?
-  matchId       Int
-  teamId        Int?
-  playerId      Int?
-  staffMemberId Int?
-  playerOutId   Int?
-  playerInId    Int?
-  isOwnGoal     Boolean        @default(false)
+  id             Int            @id @default(autoincrement())
+  type           MatchEventType
+  minute         Int?
+  matchId        Int
+  teamId         Int?
+  playerId       Int?
+  assistPlayerId Int?
+  staffMemberId  Int?
+  playerOutId    Int?
+  playerInId     Int?
+  isOwnGoal      Boolean        @default(false)
 
-  match       Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  team        Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  player      Player?      @relation("EventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
-  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
-  playerOut   Player?      @relation("SubstitutionPlayerOut", fields: [playerOutId], references: [id], onDelete: SetNull)
-  playerIn    Player?      @relation("SubstitutionPlayerIn", fields: [playerInId], references: [id], onDelete: SetNull)
+  match        Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  player       Player?      @relation("EventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
+  assistPlayer Player?      @relation("AssistPlayer", fields: [assistPlayerId], references: [id], onDelete: SetNull)
+  staffMember  StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  playerOut    Player?      @relation("SubstitutionPlayerOut", fields: [playerOutId], references: [id], onDelete: SetNull)
+  playerIn     Player?      @relation("SubstitutionPlayerIn", fields: [playerInId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

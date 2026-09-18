@@ -178,7 +178,9 @@ export class MatchEventsService {
     minute: number | undefined,
     teamId: number | undefined,
     playerId: number | undefined,
+    assistPlayerId: number | undefined,
     staffMemberId: number | undefined,
+    isOwnGoal: boolean,
     excludedEventId?: number,
   ) {
     if (teamId === undefined) {
@@ -190,6 +192,22 @@ export class MatchEventsService {
     if (staffMemberId !== undefined) {
       throw new BadRequestException(
         'A goal cannot have a staff member as recipient',
+      );
+    }
+
+    if (isOwnGoal && assistPlayerId !== undefined) {
+      throw new BadRequestException(
+        'An own goal cannot have an assist',
+      );
+    }
+
+    if (
+      playerId !== undefined &&
+      assistPlayerId !== undefined &&
+      playerId === assistPlayerId
+    ) {
+      throw new BadRequestException(
+        'Goal scorer and assist player must be different',
       );
     }
 
@@ -225,6 +243,43 @@ export class MatchEventsService {
       if (!playersOnPitch.has(playerId)) {
         throw new BadRequestException(
           'Goal scorer is not on the pitch at this minute',
+        );
+      }
+    }
+
+    if (assistPlayerId !== undefined) {
+      if (minute === undefined) {
+        throw new BadRequestException(
+          'A goal with an assist must have a minute',
+        );
+      }
+
+      const assistPlayer =
+        await this.getPlayer(assistPlayerId);
+
+      if (assistPlayer.teamId !== teamId) {
+        throw new BadRequestException(
+          'Assist player does not belong to the selected team',
+        );
+      }
+
+      await this.ensurePlayerIsSelectedForMatch(
+        matchId,
+        teamId,
+        assistPlayerId,
+      );
+
+      const playersOnPitch =
+        await this.getPlayersOnPitchAtMinute(
+          matchId,
+          teamId,
+          minute,
+          excludedEventId,
+        );
+
+      if (!playersOnPitch.has(assistPlayerId)) {
+        throw new BadRequestException(
+          'Assist player is not on the pitch at this minute',
         );
       }
     }
@@ -427,6 +482,7 @@ export class MatchEventsService {
     minute: number | undefined,
     teamId: number | undefined,
     playerId: number | undefined,
+    assistPlayerId: number | undefined,
     staffMemberId: number | undefined,
     playerOutId: number | undefined,
     playerInId: number | undefined,
@@ -436,6 +492,15 @@ export class MatchEventsService {
     if (type !== 'GOAL' && isOwnGoal) {
       throw new BadRequestException(
         'isOwnGoal can only be used for goal events',
+      );
+    }
+
+    if (
+      type !== 'GOAL' &&
+      assistPlayerId !== undefined
+    ) {
+      throw new BadRequestException(
+        'assistPlayerId can only be used for goal events',
       );
     }
 
@@ -454,7 +519,9 @@ export class MatchEventsService {
         minute,
         teamId,
         playerId,
+        assistPlayerId,
         staffMemberId,
+        isOwnGoal,
         excludedEventId,
       );
 
@@ -567,6 +634,7 @@ export class MatchEventsService {
       include: {
         team: true,
         player: true,
+        assistPlayer: true,
         staffMember: true,
         playerOut: true,
         playerIn: true,
@@ -580,6 +648,7 @@ export class MatchEventsService {
     matchId: number;
     teamId?: number;
     playerId?: number;
+    assistPlayerId?: number;
     staffMemberId?: number;
     playerOutId?: number;
     playerInId?: number;
@@ -618,6 +687,7 @@ export class MatchEventsService {
       data.minute,
       data.teamId,
       data.playerId,
+      data.assistPlayerId,
       data.staffMemberId,
       data.playerOutId,
       data.playerInId,
@@ -632,6 +702,8 @@ export class MatchEventsService {
           matchId: data.matchId,
           teamId: data.teamId,
           playerId: data.playerId,
+          assistPlayerId:
+            data.assistPlayerId,
           staffMemberId:
             data.staffMemberId,
           playerOutId:
@@ -656,6 +728,7 @@ export class MatchEventsService {
       minute?: number | null;
       teamId?: number | null;
       playerId?: number | null;
+      assistPlayerId?: number | null;
       staffMemberId?: number | null;
       playerOutId?: number | null;
       playerInId?: number | null;
@@ -702,6 +775,11 @@ export class MatchEventsService {
         ? event.playerId ?? undefined
         : data.playerId ?? undefined;
 
+    const finalAssistPlayerId =
+      data.assistPlayerId === undefined
+        ? event.assistPlayerId ?? undefined
+        : data.assistPlayerId ?? undefined;
+
     const finalStaffMemberId =
       data.staffMemberId === undefined
         ? event.staffMemberId ?? undefined
@@ -734,6 +812,7 @@ export class MatchEventsService {
       finalMinute,
       finalTeamId,
       finalPlayerId,
+      finalAssistPlayerId,
       finalStaffMemberId,
       finalPlayerOutId,
       finalPlayerInId,

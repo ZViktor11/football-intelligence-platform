@@ -30,6 +30,10 @@ export class CreateMatchEventDto {
 
   @IsOptional()
   @IsInt()
+  assistPlayerId?: number;
+
+  @IsOptional()
+  @IsInt()
   staffMemberId?: number;
 
   @IsOptional()
