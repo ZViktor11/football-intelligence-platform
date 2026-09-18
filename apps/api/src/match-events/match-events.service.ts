@@ -430,8 +430,15 @@ export class MatchEventsService {
     staffMemberId: number | undefined,
     playerOutId: number | undefined,
     playerInId: number | undefined,
+    isOwnGoal: boolean,
     excludedEventId?: number,
   ) {
+    if (type !== 'GOAL' && isOwnGoal) {
+      throw new BadRequestException(
+        'isOwnGoal can only be used for goal events',
+      );
+    }
+
     if (type === 'GOAL') {
       if (
         playerOutId !== undefined ||
@@ -514,11 +521,19 @@ export class MatchEventsService {
 
     for (const goal of goalEvents) {
       if (goal.teamId === match.homeTeamId) {
-        homeScore++;
+        if (goal.isOwnGoal) {
+          awayScore++;
+        } else {
+          homeScore++;
+        }
       } else if (
         goal.teamId === match.awayTeamId
       ) {
-        awayScore++;
+        if (goal.isOwnGoal) {
+          homeScore++;
+        } else {
+          awayScore++;
+        }
       }
     }
 
@@ -568,6 +583,7 @@ export class MatchEventsService {
     staffMemberId?: number;
     playerOutId?: number;
     playerInId?: number;
+    isOwnGoal?: boolean;
   }) {
     const match =
       await this.prisma.match.findUnique({
@@ -594,6 +610,8 @@ export class MatchEventsService {
       match.awayTeamId,
     );
 
+    const isOwnGoal = data.isOwnGoal ?? false;
+
     await this.validateEvent(
       data.matchId,
       data.type,
@@ -603,6 +621,7 @@ export class MatchEventsService {
       data.staffMemberId,
       data.playerOutId,
       data.playerInId,
+      isOwnGoal,
     );
 
     const event =
@@ -619,6 +638,7 @@ export class MatchEventsService {
             data.playerOutId,
           playerInId:
             data.playerInId,
+          isOwnGoal,
         },
       });
 
@@ -639,6 +659,7 @@ export class MatchEventsService {
       staffMemberId?: number | null;
       playerOutId?: number | null;
       playerInId?: number | null;
+      isOwnGoal?: boolean;
     },
   ) {
     const event =
@@ -696,6 +717,11 @@ export class MatchEventsService {
         ? event.playerInId ?? undefined
         : data.playerInId ?? undefined;
 
+    const finalIsOwnGoal =
+      data.isOwnGoal === undefined
+        ? event.isOwnGoal
+        : data.isOwnGoal;
+
     this.validateTeamBelongsToMatch(
       finalTeamId,
       event.match.homeTeamId,
@@ -711,6 +737,7 @@ export class MatchEventsService {
       finalStaffMemberId,
       finalPlayerOutId,
       finalPlayerInId,
+      finalIsOwnGoal,
       event.id,
     );
 

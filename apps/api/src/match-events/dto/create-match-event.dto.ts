@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -38,4 +39,8 @@ export class CreateMatchEventDto {
   @IsOptional()
   @IsInt()
   playerInId?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isOwnGoal?: boolean;
 }
