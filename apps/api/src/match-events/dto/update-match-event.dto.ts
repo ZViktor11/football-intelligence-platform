@@ -15,25 +15,25 @@ export class UpdateMatchEventDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  minute?: number;
+  minute?: number | null;
 
   @IsOptional()
   @IsInt()
-  teamId?: number;
+  teamId?: number | null;
 
   @IsOptional()
   @IsInt()
-  playerId?: number;
+  playerId?: number | null;
 
   @IsOptional()
   @IsInt()
-  staffMemberId?: number;
+  staffMemberId?: number | null;
 
   @IsOptional()
   @IsInt()
-  playerOutId?: number;
+  playerOutId?: number | null;
 
   @IsOptional()
   @IsInt()
-  playerInId?: number;
+  playerInId?: number | null;
 }

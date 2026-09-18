@@ -633,12 +633,12 @@ export class MatchEventsService {
     id: number,
     data: {
       type?: EventType;
-      minute?: number;
-      teamId?: number;
-      playerId?: number;
-      staffMemberId?: number;
-      playerOutId?: number;
-      playerInId?: number;
+      minute?: number | null;
+      teamId?: number | null;
+      playerId?: number | null;
+      staffMemberId?: number | null;
+      playerOutId?: number | null;
+      playerInId?: number | null;
     },
   ) {
     const event =
@@ -659,42 +659,42 @@ export class MatchEventsService {
       event.match.status,
     );
 
-    this.validateMinute(
-      data.minute,
-    );
+    if (data.minute !== null) {
+      this.validateMinute(data.minute);
+    }
 
     const finalType =
       data.type ?? event.type;
 
     const finalMinute =
-      data.minute ??
-      event.minute ??
-      undefined;
+      data.minute === undefined
+        ? event.minute ?? undefined
+        : data.minute ?? undefined;
 
     const finalTeamId =
-      data.teamId ??
-      event.teamId ??
-      undefined;
+      data.teamId === undefined
+        ? event.teamId ?? undefined
+        : data.teamId ?? undefined;
 
     const finalPlayerId =
-      data.playerId ??
-      event.playerId ??
-      undefined;
+      data.playerId === undefined
+        ? event.playerId ?? undefined
+        : data.playerId ?? undefined;
 
     const finalStaffMemberId =
-      data.staffMemberId ??
-      event.staffMemberId ??
-      undefined;
+      data.staffMemberId === undefined
+        ? event.staffMemberId ?? undefined
+        : data.staffMemberId ?? undefined;
 
     const finalPlayerOutId =
-      data.playerOutId ??
-      event.playerOutId ??
-      undefined;
+      data.playerOutId === undefined
+        ? event.playerOutId ?? undefined
+        : data.playerOutId ?? undefined;
 
     const finalPlayerInId =
-      data.playerInId ??
-      event.playerInId ??
-      undefined;
+      data.playerInId === undefined
+        ? event.playerInId ?? undefined
+        : data.playerInId ?? undefined;
 
     this.validateTeamBelongsToMatch(
       finalTeamId,
