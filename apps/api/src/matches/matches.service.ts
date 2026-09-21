@@ -134,7 +134,17 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    return match;
+    const clock = this.calculateMatchClock(
+      match.status,
+      match.actualStartedAt,
+      match.secondHalfStartedAt,
+      match.season.competition.halfDurationMinutes,
+    );
+
+    return {
+      ...match,
+      ...clock,
+    };
   }
 
   async updateStatus(id: number, status: MatchStatus) {
@@ -162,11 +172,126 @@ export class MatchesService {
       );
     }
 
+    const now = new Date();
+
+    const isFirstKickoff =
+      match.status === MatchStatus.PRE_MATCH &&
+      status === MatchStatus.LIVE &&
+      match.actualStartedAt === null;
+
+    const isHalfTime =
+      match.status === MatchStatus.LIVE &&
+      status === MatchStatus.HALF_TIME &&
+      match.firstHalfEndedAt === null;
+
+    const isSecondHalfKickoff =
+      match.status === MatchStatus.HALF_TIME &&
+      status === MatchStatus.LIVE &&
+      match.secondHalfStartedAt === null;
+
+    const isFullTime =
+      match.status === MatchStatus.LIVE &&
+      status === MatchStatus.FINISHED &&
+      match.actualEndedAt === null;
+
     return this.prisma.match.update({
       where: { id },
       data: {
         status,
+
+        ...(isFirstKickoff && {
+          actualStartedAt: now,
+        }),
+
+        ...(isHalfTime && {
+          firstHalfEndedAt: now,
+        }),
+
+        ...(isSecondHalfKickoff && {
+          secondHalfStartedAt: now,
+        }),
+
+        ...(isFullTime && {
+          actualEndedAt: now,
+        }),
       },
     });
+  }
+
+  private calculateMatchClock(
+    status: MatchStatus,
+    actualStartedAt: Date | null,
+    secondHalfStartedAt: Date | null,
+    halfDurationMinutes: number,
+  ) {
+    if (
+      status === MatchStatus.SCHEDULED ||
+      status === MatchStatus.PRE_MATCH
+    ) {
+      return {
+        matchMinute: null,
+        clockDisplay: null,
+      };
+    }
+
+    if (status === MatchStatus.HALF_TIME) {
+      return {
+        matchMinute: halfDurationMinutes,
+        clockDisplay: 'HT',
+      };
+    }
+
+    if (status === MatchStatus.FINISHED) {
+      return {
+        matchMinute: halfDurationMinutes * 2,
+        clockDisplay: 'FT',
+      };
+    }
+
+    if (
+      status === MatchStatus.LIVE &&
+      secondHalfStartedAt
+    ) {
+      const elapsedMinutes = this.getElapsedMinutes(
+        secondHalfStartedAt,
+      );
+
+      const matchMinute =
+        halfDurationMinutes + elapsedMinutes;
+
+      return {
+        matchMinute,
+        clockDisplay: `${matchMinute}'`,
+      };
+    }
+
+    if (
+      status === MatchStatus.LIVE &&
+      actualStartedAt
+    ) {
+      const matchMinute = this.getElapsedMinutes(
+        actualStartedAt,
+      );
+
+      return {
+        matchMinute,
+        clockDisplay: `${matchMinute}'`,
+      };
+    }
+
+    return {
+      matchMinute: null,
+      clockDisplay: null,
+    };
+  }
+
+  private getElapsedMinutes(startedAt: Date) {
+    const elapsedMilliseconds =
+      Date.now() - startedAt.getTime();
+
+    return Math.max(
+      0,
+      Math.floor(elapsedMilliseconds / 60000),
+    );
   }
 }

@@ -55,6 +55,8 @@ model Competition {
   description String?
   isActive    Boolean @default(true)
 
+  halfDurationMinutes Int @default(45)
+
   seasons         Season[]
   roleAssignments RoleAssignment[]
 
@@ -143,8 +145,12 @@ model StaffMember {
 model Match {
   id Int @id @default(autoincrement())
 
-  date   DateTime
-  status MatchStatus @default(SCHEDULED)
+  date                DateTime
+  actualStartedAt     DateTime?
+  firstHalfEndedAt    DateTime?
+  secondHalfStartedAt DateTime?
+  actualEndedAt       DateTime?
+  status              MatchStatus @default(SCHEDULED)
 
   homeScore Int @default(0)
   awayScore Int @default(0)
