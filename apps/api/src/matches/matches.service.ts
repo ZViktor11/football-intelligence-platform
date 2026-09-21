@@ -257,11 +257,14 @@ export class MatchesService {
       );
 
       const matchMinute =
-        halfDurationMinutes + elapsedMinutes;
+        halfDurationMinutes + elapsedMinutes + 1;
 
       return {
         matchMinute,
-        clockDisplay: `${matchMinute}'`,
+        clockDisplay: this.formatMatchMinute(
+          matchMinute,
+          halfDurationMinutes * 2,
+        ),
       };
     }
 
@@ -269,13 +272,18 @@ export class MatchesService {
       status === MatchStatus.LIVE &&
       actualStartedAt
     ) {
-      const matchMinute = this.getElapsedMinutes(
+      const elapsedMinutes = this.getElapsedMinutes(
         actualStartedAt,
       );
 
+      const matchMinute = elapsedMinutes + 1;
+
       return {
         matchMinute,
-        clockDisplay: `${matchMinute}'`,
+        clockDisplay: this.formatMatchMinute(
+          matchMinute,
+          halfDurationMinutes,
+        ),
       };
     }
 
@@ -283,6 +291,20 @@ export class MatchesService {
       matchMinute: null,
       clockDisplay: null,
     };
+  }
+
+  private formatMatchMinute(
+    matchMinute: number,
+    regulationEndMinute: number,
+  ) {
+    if (matchMinute <= regulationEndMinute) {
+      return `${matchMinute}'`;
+    }
+
+    const stoppageTime =
+      matchMinute - regulationEndMinute;
+
+    return `${regulationEndMinute}+${stoppageTime}'`;
   }
 
   private getElapsedMinutes(startedAt: Date) {
