@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MatchesService } from '../matches/matches.service';
 
 type EventType =
   | 'GOAL'
@@ -13,7 +14,10 @@ type EventType =
 
 @Injectable()
 export class MatchEventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+  private readonly prisma: PrismaService,
+  private readonly matchesService: MatchesService,
+) {}
 
   private ensureMatchIsEditable(status: string) {
     const editableStatuses = ['LIVE', 'HALF_TIME'];
@@ -655,9 +659,16 @@ export class MatchEventsService {
     isOwnGoal?: boolean;
   }) {
     const match =
-      await this.prisma.match.findUnique({
-        where: { id: data.matchId },
-      });
+  await this.prisma.match.findUnique({
+    where: { id: data.matchId },
+    include: {
+      season: {
+        include: {
+          competition: true,
+        },
+      },
+    },
+  });
 
     if (!match) {
       throw new NotFoundException(
@@ -669,9 +680,19 @@ export class MatchEventsService {
       match.status,
     );
 
+    const clock = this.matchesService.calculateMatchClock(
+  match.status,
+  match.actualStartedAt,
+  match.secondHalfStartedAt,
+  match.season.competition.halfDurationMinutes,
+);
+
+const eventMinute =
+  data.minute ?? clock.matchMinute ?? undefined;
+
     this.validateMinute(
-      data.minute,
-    );
+  eventMinute,
+);
 
     this.validateTeamBelongsToMatch(
       data.teamId,
@@ -684,7 +705,7 @@ export class MatchEventsService {
     await this.validateEvent(
       data.matchId,
       data.type,
-      data.minute,
+      eventMinute,
       data.teamId,
       data.playerId,
       data.assistPlayerId,
@@ -695,24 +716,24 @@ export class MatchEventsService {
     );
 
     const event =
-      await this.prisma.matchEvent.create({
-        data: {
-          type: data.type,
-          minute: data.minute,
-          matchId: data.matchId,
-          teamId: data.teamId,
-          playerId: data.playerId,
-          assistPlayerId:
-            data.assistPlayerId,
-          staffMemberId:
-            data.staffMemberId,
-          playerOutId:
-            data.playerOutId,
-          playerInId:
-            data.playerInId,
-          isOwnGoal,
-        },
-      });
+  await this.prisma.matchEvent.create({
+    data: {
+      type: data.type,
+      minute: eventMinute,
+      matchId: data.matchId,
+      teamId: data.teamId,
+      playerId: data.playerId,
+      assistPlayerId:
+        data.assistPlayerId,
+      staffMemberId:
+        data.staffMemberId,
+      playerOutId:
+        data.playerOutId,
+      playerInId:
+        data.playerInId,
+      isOwnGoal,
+    },
+  });
 
     await this.recalculateScore(
       data.matchId,

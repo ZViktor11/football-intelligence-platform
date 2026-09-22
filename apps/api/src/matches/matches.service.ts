@@ -218,7 +218,7 @@ export class MatchesService {
     });
   }
 
-  private calculateMatchClock(
+  calculateMatchClock(
     status: MatchStatus,
     actualStartedAt: Date | null,
     secondHalfStartedAt: Date | null,
