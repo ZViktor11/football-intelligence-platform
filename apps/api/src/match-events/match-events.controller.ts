@@ -7,8 +7,10 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { Role } from '../../generated/prisma/client';
 
 import { MatchEventsService } from './match-events.service';
@@ -20,6 +22,13 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { MatchAccessGuard } from '../auth/match-access.guard';
 import { MatchAccess } from '../auth/match-access.decorator';
+
+type AuthenticatedRequest = Request & {
+  user: {
+    sub: number;
+    email?: string;
+  };
+};
 
 @Controller('match-events')
 export class MatchEventsController {
@@ -42,9 +51,11 @@ export class MatchEventsController {
   create(
     @Body()
     createMatchEventDto: CreateMatchEventDto,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.matchEventsService.create(
       createMatchEventDto,
+      request.user.sub,
     );
   }
 
@@ -74,10 +85,12 @@ export class MatchEventsController {
     @Param('id', ParseIntPipe) id: number,
     @Body()
     updateMatchEventDto: UpdateMatchEventDto,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.matchEventsService.update(
       id,
       updateMatchEventDto,
+      request.user.sub,
     );
   }
 
@@ -95,7 +108,11 @@ export class MatchEventsController {
   @MatchAccess('eventIdParam')
   remove(
     @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.matchEventsService.remove(id);
+    return this.matchEventsService.remove(
+      id,
+      request.user.sub,
+    );
   }
 }

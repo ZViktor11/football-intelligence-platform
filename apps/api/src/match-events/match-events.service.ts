@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchesService } from '../matches/matches.service';
+import { AuthService } from '../auth/auth.service';
+import { Role } from '../../generated/prisma/client';
 
 type EventType =
   | 'GOAL'
@@ -17,17 +19,35 @@ export class MatchEventsService {
   constructor(
   private readonly prisma: PrismaService,
   private readonly matchesService: MatchesService,
+  private readonly authService: AuthService,
 ) {}
 
-  private ensureMatchIsEditable(status: string) {
-    const editableStatuses = ['LIVE', 'HALF_TIME'];
+ private async ensureMatchIsEditable(
+  status: string,
+  userId: number,
+) {
+  if (status === 'LIVE' || status === 'HALF_TIME') {
+    return;
+  }
 
-    if (!editableStatuses.includes(status)) {
-      throw new BadRequestException(
-        `Match events cannot be modified while match status is ${status}`,
-      );
+  if (status === 'FINISHED') {
+    const assignments =
+      await this.authService.getUserRoles(userId);
+
+    const isSystemAdmin = assignments.some(
+      (assignment) =>
+        assignment.role === Role.SYSTEM_ADMIN,
+    );
+
+    if (isSystemAdmin) {
+      return;
     }
   }
+
+  throw new BadRequestException(
+    `Match events cannot be modified while match status is ${status}`,
+  );
+}
 
   private validateMinute(minute?: number) {
     if (
@@ -657,7 +677,7 @@ export class MatchEventsService {
     playerOutId?: number;
     playerInId?: number;
     isOwnGoal?: boolean;
-  }) {
+}, userId: number) {
     const match =
   await this.prisma.match.findUnique({
     where: { id: data.matchId },
@@ -676,9 +696,10 @@ export class MatchEventsService {
       );
     }
 
-    this.ensureMatchIsEditable(
-      match.status,
-    );
+    await this.ensureMatchIsEditable(
+  match.status,
+  userId,
+);
 
     const clock = this.matchesService.calculateMatchClock(
   match.status,
@@ -754,8 +775,9 @@ const eventMinute =
       playerOutId?: number | null;
       playerInId?: number | null;
       isOwnGoal?: boolean;
-    },
-  ) {
+},
+userId: number,
+) {
     const event =
       await this.prisma.matchEvent.findUnique({
         where: { id },
@@ -770,9 +792,10 @@ const eventMinute =
       );
     }
 
-    this.ensureMatchIsEditable(
-      event.match.status,
-    );
+    await this.ensureMatchIsEditable(
+  event.match.status,
+  userId,
+);
 
     if (data.minute !== null) {
       this.validateMinute(data.minute);
@@ -854,7 +877,10 @@ const eventMinute =
     return updatedEvent;
   }
 
-  async remove(id: number) {
+  async remove(
+  id: number,
+  userId: number,
+) {
     const event =
       await this.prisma.matchEvent.findUnique({
         where: { id },
@@ -869,9 +895,10 @@ const eventMinute =
       );
     }
 
-    this.ensureMatchIsEditable(
-      event.match.status,
-    );
+    await this.ensureMatchIsEditable(
+  event.match.status,
+  userId,
+);
 
     const deletedEvent =
       await this.prisma.matchEvent.delete({
