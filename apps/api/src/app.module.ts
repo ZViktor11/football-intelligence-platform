@@ -14,6 +14,7 @@ import { MatchesModule } from './matches/matches.module';
 import { MatchEventsModule } from './match-events/match-events.module';
 import { StaffMembersModule } from './staff-members/staff-members.module';
 import { MatchSquadsModule } from './match-squads/match-squads.module';
+import { MatchReportsModule } from './match-reports/match-reports.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { MatchSquadsModule } from './match-squads/match-squads.module';
     MatchEventsModule,
     StaffMembersModule,
     MatchSquadsModule,
+    MatchReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -19,6 +19,7 @@ model User {
   roleAssignments       RoleAssignment[]
   refreshTokens         RefreshToken[]
   matchAdminAssignments MatchAdminAssignment[]
+  matchReports          MatchReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -113,10 +114,10 @@ model Player {
   position  String?
   isActive  Boolean   @default(true)
 
-  matchEvents           MatchEvent[] @relation("EventPlayer")
-  assistEvents          MatchEvent[] @relation("AssistPlayer")
-  substitutionOutEvents MatchEvent[] @relation("SubstitutionPlayerOut")
-  substitutionInEvents  MatchEvent[] @relation("SubstitutionPlayerIn")
+  matchEvents           MatchEvent[]       @relation("EventPlayer")
+  assistEvents          MatchEvent[]       @relation("AssistPlayer")
+  substitutionOutEvents MatchEvent[]       @relation("SubstitutionPlayerOut")
+  substitutionInEvents  MatchEvent[]       @relation("SubstitutionPlayerIn")
   matchSquadEntries     MatchSquadPlayer[]
 
   teamId Int?
@@ -167,6 +168,7 @@ model Match {
   events                MatchEvent[]
   matchAdminAssignments MatchAdminAssignment[]
   squadPlayers          MatchSquadPlayer[]
+  reports               MatchReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -231,6 +233,23 @@ model MatchAdminAssignment {
   @@unique([userId, matchId])
 }
 
+model MatchReport {
+  id Int @id @default(autoincrement())
+
+  message String
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  authorId Int
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  status MatchReportStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum Role {
   SYSTEM_ADMIN
   COMPETITION_ADMIN
@@ -264,4 +283,10 @@ enum StaffRole {
 enum MatchSquadRole {
   STARTER
   SUBSTITUTE
+}
+
+enum MatchReportStatus {
+  OPEN
+  RESOLVED
+  REJECTED
 }
