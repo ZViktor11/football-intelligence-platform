@@ -547,5 +547,134 @@ it('should allow a system admin to delete an event after the match is finished',
     prismaMock.matchEvent.delete,
   ).toHaveBeenCalled();
 });
+
+  describe('goal assists', () => {
+    it('should allow a valid assist from a teammate who is on the pitch', async () => {
+      prismaMock.player.findUnique
+        .mockResolvedValueOnce({ id: 1, teamId: 1 })
+        .mockResolvedValueOnce({ id: 4, teamId: 1 });
+
+      prismaMock.matchSquadPlayer.findUnique
+        .mockResolvedValueOnce({ matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' })
+        .mockResolvedValueOnce({ matchId: 1, teamId: 1, playerId: 4, role: 'STARTER' });
+
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'STARTER' },
+      ]);
+
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+      prismaMock.matchEvent.create.mockImplementation(async ({ data }) => ({
+        id: 20,
+        ...data,
+      }));
+
+      const event = await service.create(
+        {
+          type: 'GOAL',
+          minute: 30,
+          matchId: 1,
+          teamId: 1,
+          playerId: 1,
+          assistPlayerId: 4,
+        },
+        2,
+      );
+
+      expect(event).toEqual(
+        expect.objectContaining({
+          playerId: 1,
+          assistPlayerId: 4,
+        }),
+      );
+    });
+
+    it('should reject the scorer as their own assist player', async () => {
+      await expect(
+        service.create(
+          {
+            type: 'GOAL',
+            minute: 30,
+            matchId: 1,
+            teamId: 1,
+            playerId: 1,
+            assistPlayerId: 1,
+          },
+          2,
+        ),
+      ).rejects.toThrow('Goal scorer and assist player must be different');
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject an assist player from the other team', async () => {
+      prismaMock.player.findUnique.mockResolvedValue({ id: 4, teamId: 2 });
+
+      await expect(
+        service.create(
+          {
+            type: 'GOAL',
+            minute: 30,
+            matchId: 1,
+            teamId: 1,
+            assistPlayerId: 4,
+          },
+          2,
+        ),
+      ).rejects.toThrow('Assist player does not belong to the selected team');
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject an assist player who is not on the pitch', async () => {
+      prismaMock.player.findUnique.mockResolvedValue({ id: 4, teamId: 1 });
+      prismaMock.matchSquadPlayer.findUnique.mockResolvedValue({
+        matchId: 1,
+        teamId: 1,
+        playerId: 4,
+        role: 'SUBSTITUTE',
+      });
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.create(
+          {
+            type: 'GOAL',
+            minute: 30,
+            matchId: 1,
+            teamId: 1,
+            assistPlayerId: 4,
+          },
+          2,
+        ),
+      ).rejects.toThrow('Assist player is not on the pitch at this minute');
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject an assist on an own goal', async () => {
+      await expect(
+        service.create(
+          {
+            type: 'GOAL',
+            minute: 30,
+            matchId: 1,
+            teamId: 1,
+            playerId: 1,
+            assistPlayerId: 4,
+            isOwnGoal: true,
+          },
+          2,
+        ),
+      ).rejects.toThrow('An own goal cannot have an assist');
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+  });
+
   });
 });
