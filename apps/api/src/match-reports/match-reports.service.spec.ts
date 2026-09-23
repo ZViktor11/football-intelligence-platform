@@ -126,21 +126,24 @@ describe('MatchReportsService', () => {
   });
 
   describe('updateStatus', () => {
-    it('should resolve an open report', async () => {
+    it('should resolve an open report and store review audit data', async () => {
       prismaMock.matchReport.findUnique.mockResolvedValue({
         id: 1,
         status: MatchReportStatus.OPEN,
       });
 
-      prismaMock.matchReport.update.mockResolvedValue({
-        id: 1,
-        status: MatchReportStatus.RESOLVED,
-      });
+      prismaMock.matchReport.update.mockImplementation(
+        ({ data }) => ({
+          id: 1,
+          ...data,
+        }),
+      );
 
       const result =
         await service.updateStatus(
           1,
           MatchReportStatus.RESOLVED,
+          1,
         );
 
       expect(
@@ -151,11 +154,28 @@ describe('MatchReportsService', () => {
         },
         data: {
           status: MatchReportStatus.RESOLVED,
+          reviewedById: 1,
+          reviewedAt: expect.any(Date),
+        },
+        include: {
+          reviewedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
         },
       });
 
       expect(result.status).toBe(
         MatchReportStatus.RESOLVED,
+      );
+
+      expect(result.reviewedById).toBe(1);
+      expect(result.reviewedAt).toEqual(
+        expect.any(Date),
       );
     });
 
@@ -169,6 +189,7 @@ describe('MatchReportsService', () => {
         service.updateStatus(
           1,
           MatchReportStatus.OPEN,
+          1,
         ),
       ).rejects.toThrow(BadRequestException);
 
@@ -186,6 +207,7 @@ describe('MatchReportsService', () => {
         service.updateStatus(
           999,
           MatchReportStatus.RESOLVED,
+          1,
         ),
       ).rejects.toThrow(NotFoundException);
     });

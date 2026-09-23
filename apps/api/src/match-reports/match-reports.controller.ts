@@ -99,10 +99,12 @@ export class MatchReportsController {
     @Param('id', ParseIntPipe) id: number,
     @Body()
     updateMatchReportStatusDto: UpdateMatchReportStatusDto,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.matchReportsService.updateStatus(
       id,
       updateMatchReportStatusDto.status,
+      request.user.sub,
     );
   }
 }

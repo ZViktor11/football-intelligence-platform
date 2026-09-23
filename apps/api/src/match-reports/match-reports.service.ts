@@ -64,6 +64,14 @@ export class MatchReportsService {
             lastName: true,
           },
         },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -101,6 +109,14 @@ export class MatchReportsService {
             lastName: true,
           },
         },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -111,6 +127,7 @@ export class MatchReportsService {
   async updateStatus(
     id: number,
     status: MatchReportStatus,
+    reviewedById: number,
   ) {
     const report =
       await this.prisma.matchReport.findUnique({
@@ -137,6 +154,18 @@ export class MatchReportsService {
       },
       data: {
         status,
+        reviewedById,
+        reviewedAt: new Date(),
+      },
+      include: {
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
     });
   }
