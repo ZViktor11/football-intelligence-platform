@@ -59,6 +59,21 @@ type MatchEvent = {
   playerIn: EventPlayer | null
 }
 
+type MatchSquadPlayer = {
+  id: number
+  matchId: number
+  teamId: number
+  playerId: number
+  role: 'STARTER' | 'SUBSTITUTE'
+  team: Team
+  player: {
+    id: number
+    firstName: string
+    lastName: string
+    position: string | null
+  }
+}
+
 function Header() {
   return (
     <header className="header">
@@ -176,6 +191,7 @@ function MatchListPage() {
                   <div className="match-content">
                     <div className="team team-home">
                       <strong>{match.homeTeam.name}</strong>
+
                       {match.homeTeam.city && (
                         <span>{match.homeTeam.city}</span>
                       )}
@@ -193,6 +209,7 @@ function MatchListPage() {
 
                     <div className="team team-away">
                       <strong>{match.awayTeam.name}</strong>
+
                       {match.awayTeam.city && (
                         <span>{match.awayTeam.city}</span>
                       )}
@@ -213,6 +230,7 @@ function MatchDetailPage() {
 
   const [match, setMatch] = useState<Match | null>(null)
   const [events, setEvents] = useState<MatchEvent[]>([])
+  const [squad, setSquad] = useState<MatchSquadPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -222,24 +240,39 @@ function MatchDetailPage() {
         setLoading(true)
         setError(null)
 
-        const [matchResponse, eventsResponse] = await Promise.all([
-          fetch(`http://localhost:3000/matches/${id}`),
-          fetch(`http://localhost:3000/match-events/match/${id}`),
-        ])
+        const [matchResponse, eventsResponse, squadResponse] =
+          await Promise.all([
+            fetch(`http://localhost:3000/matches/${id}`),
+            fetch(`http://localhost:3000/match-events/match/${id}`),
+            fetch(`http://localhost:3000/match-squads/match/${id}`),
+          ])
 
         if (!matchResponse.ok) {
-          throw new Error(`Match request failed: ${matchResponse.status}`)
+          throw new Error(
+            `Match request failed: ${matchResponse.status}`,
+          )
         }
 
         if (!eventsResponse.ok) {
-          throw new Error(`Events request failed: ${eventsResponse.status}`)
+          throw new Error(
+            `Events request failed: ${eventsResponse.status}`,
+          )
+        }
+
+        if (!squadResponse.ok) {
+          throw new Error(
+            `Squad request failed: ${squadResponse.status}`,
+          )
         }
 
         const matchData: Match = await matchResponse.json()
         const eventsData: MatchEvent[] = await eventsResponse.json()
+        const squadData: MatchSquadPlayer[] =
+          await squadResponse.json()
 
         setMatch(matchData)
         setEvents(eventsData)
+        setSquad(squadData)
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Could not load match',
@@ -281,7 +314,7 @@ function MatchDetailPage() {
         ? `${event.playerIn.firstName} ${event.playerIn.lastName}`
         : 'Unknown player'
 
-      return `${playerOut} → ${playerIn}`
+      return `${playerOut} -> ${playerIn}`
     }
 
     if (event.staffMember) {
@@ -293,7 +326,7 @@ function MatchDetailPage() {
         `${event.player.firstName} ${event.player.lastName}`
 
       if (event.type === 'GOAL' && event.assistPlayer) {
-        return `${playerName} · Assist: ${event.assistPlayer.firstName} ${event.assistPlayer.lastName}`
+        return `${playerName} - Assist: ${event.assistPlayer.firstName} ${event.assistPlayer.lastName}`
       }
 
       return playerName
@@ -302,27 +335,55 @@ function MatchDetailPage() {
     return 'No player information'
   }
 
+  const homeStarters = match
+    ? squad.filter(
+        (entry) =>
+          entry.teamId === match.homeTeam.id &&
+          entry.role === 'STARTER',
+      )
+    : []
+
+  const homeSubstitutes = match
+    ? squad.filter(
+        (entry) =>
+          entry.teamId === match.homeTeam.id &&
+          entry.role === 'SUBSTITUTE',
+      )
+    : []
+
+  const awayStarters = match
+    ? squad.filter(
+        (entry) =>
+          entry.teamId === match.awayTeam.id &&
+          entry.role === 'STARTER',
+      )
+    : []
+
+  const awaySubstitutes = match
+    ? squad.filter(
+        (entry) =>
+          entry.teamId === match.awayTeam.id &&
+          entry.role === 'SUBSTITUTE',
+      )
+    : []
+
   return (
     <main className="main">
       <Link className="back-link" to="/">
-        ← Back to matches
+        Back to matches
       </Link>
 
       {loading && (
-        <section className="matches-section">
-          <div className="empty-state">
-            <h3>Loading match...</h3>
-          </div>
-        </section>
+        <div className="empty-state">
+          <h3>Loading match...</h3>
+        </div>
       )}
 
       {error && (
-        <section className="matches-section">
-          <div className="empty-state">
-            <h3>Could not load match</h3>
-            <p>{error}</p>
-          </div>
-        </section>
+        <div className="empty-state">
+          <h3>Could not load match</h3>
+          <p>{error}</p>
+        </div>
       )}
 
       {!loading && !error && match && (
@@ -341,7 +402,7 @@ function MatchDetailPage() {
               </span>
             </div>
 
-            <div className="match-content match-detail-score">
+            <div className="match-content">
               <div className="team team-home">
                 <strong>{match.homeTeam.name}</strong>
 
@@ -384,34 +445,175 @@ function MatchDetailPage() {
 
             {events.length === 0 ? (
               <div className="empty-state">
-                <h3>No match events yet</h3>
+                <h3>No match events</h3>
               </div>
             ) : (
               <div className="timeline">
                 {events.map((event) => (
                   <div className="timeline-event" key={event.id}>
                     <div className="timeline-minute">
-                      {event.minute !== null ? `${event.minute}'` : '—'}
+                      {event.minute !== null
+                        ? `${event.minute}'`
+                        : '-'}
                     </div>
 
                     <div className="timeline-marker" />
 
                     <div className="timeline-content">
-  <strong className={`event-title event-${event.type.toLowerCase()}`}>
-    <span className="event-icon">
-      {event.type === 'GOAL' && '⚽'}
-      {event.type === 'YELLOW_CARD' && '■'}
-      {event.type === 'RED_CARD' && '■'}
-      {event.type === 'SUBSTITUTION' && '↕'}
-    </span>
+                      <strong
+                        className={`event-title event-${event.type.toLowerCase()}`}
+                      >
+                        <span className="event-icon">
+                          {event.type === 'GOAL' && 'G'}
+                          {event.type === 'YELLOW_CARD' && '■'}
+                          {event.type === 'RED_CARD' && '■'}
+                          {event.type === 'SUBSTITUTION' && 'S'}
+                        </span>
 
-    {getEventTitle(event)}
-  </strong>
+                        {getEventTitle(event)}
+                      </strong>
 
-  <span>{getEventDescription(event)}</span>
-</div>
+                      <span>{getEventDescription(event)}</span>
+                    </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </section>
+
+          <section className="matches-section lineup-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Match squad</p>
+                <h2>Lineups</h2>
+              </div>
+
+              <span className="status-badge">
+                {squad.length} players
+              </span>
+            </div>
+
+            {squad.length === 0 ? (
+              <div className="empty-state">
+                <h3>No lineup available</h3>
+              </div>
+            ) : (
+              <div className="lineups">
+                <div className="lineup-team">
+                  <h3>{match.homeTeam.name}</h3>
+
+                  <h4>Starting lineup</h4>
+
+                  <div className="player-list">
+                    {homeStarters.length === 0 && (
+                      <p className="lineup-empty">
+                        No starters available
+                      </p>
+                    )}
+
+                    {homeStarters.map((entry) => (
+                      <div
+                        className="lineup-player"
+                        key={entry.id}
+                      >
+                        <strong>
+                          {entry.player.firstName}{' '}
+                          {entry.player.lastName}
+                        </strong>
+
+                        <span>
+                          {entry.player.position ??
+                            'Unknown position'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <h4>Substitutes</h4>
+
+                  <div className="player-list">
+                    {homeSubstitutes.length === 0 && (
+                      <p className="lineup-empty">
+                        No substitutes available
+                      </p>
+                    )}
+
+                    {homeSubstitutes.map((entry) => (
+                      <div
+                        className="lineup-player"
+                        key={entry.id}
+                      >
+                        <strong>
+                          {entry.player.firstName}{' '}
+                          {entry.player.lastName}
+                        </strong>
+
+                        <span>
+                          {entry.player.position ??
+                            'Unknown position'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="lineup-team">
+                  <h3>{match.awayTeam.name}</h3>
+
+                  <h4>Starting lineup</h4>
+
+                  <div className="player-list">
+                    {awayStarters.length === 0 && (
+                      <p className="lineup-empty">
+                        No starters available
+                      </p>
+                    )}
+
+                    {awayStarters.map((entry) => (
+                      <div
+                        className="lineup-player"
+                        key={entry.id}
+                      >
+                        <strong>
+                          {entry.player.firstName}{' '}
+                          {entry.player.lastName}
+                        </strong>
+
+                        <span>
+                          {entry.player.position ??
+                            'Unknown position'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <h4>Substitutes</h4>
+
+                  <div className="player-list">
+                    {awaySubstitutes.length === 0 && (
+                      <p className="lineup-empty">
+                        No substitutes available
+                      </p>
+                    )}
+
+                    {awaySubstitutes.map((entry) => (
+                      <div
+                        className="lineup-player"
+                        key={entry.id}
+                      >
+                        <strong>
+                          {entry.player.firstName}{' '}
+                          {entry.player.lastName}
+                        </strong>
+
+                        <span>
+                          {entry.player.position ??
+                            'Unknown position'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </section>

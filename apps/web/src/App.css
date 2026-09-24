@@ -222,3 +222,75 @@
   color: #16794a;
   font-size: 18px;
 }
+
+/* Match lineups */
+
+.lineup-section {
+  margin-top: 24px;
+}
+
+.lineups {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  margin-top: 28px;
+}
+
+.lineup-team {
+  min-width: 0;
+}
+
+.lineup-team h3 {
+  margin: 0 0 24px;
+  font-size: 22px;
+}
+
+.lineup-team h4 {
+  margin: 24px 0 8px;
+  color: #66736b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.player-list {
+  display: grid;
+}
+
+.lineup-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 48px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf0ee;
+}
+
+.lineup-player strong {
+  font-size: 15px;
+}
+
+.lineup-player span {
+  color: #7a857e;
+  font-size: 13px;
+  text-align: right;
+}
+
+.lineup-empty {
+  margin: 8px 0;
+  color: #7a857e;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .lineups {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .lineup-player {
+    gap: 12px;
+  }
+}
