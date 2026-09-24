@@ -149,3 +149,76 @@
   margin: 0;
   font-size: 42px;
 }
+
+.timeline-section {
+  margin-top: 24px;
+}
+
+.timeline {
+  margin-top: 28px;
+}
+
+.timeline-event {
+  display: grid;
+  grid-template-columns: 50px 18px 1fr;
+  gap: 14px;
+  align-items: center;
+  min-height: 64px;
+}
+
+.timeline-minute {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  color: #526158;
+}
+
+.timeline-marker {
+  width: 10px;
+  height: 10px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: #16794a;
+}
+
+.timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf0ee;
+}
+
+.timeline-content strong {
+  font-size: 15px;
+}
+
+.timeline-content span {
+  color: #6b776f;
+  font-size: 14px;
+}
+
+.event-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-icon {
+  display: inline-flex;
+  width: 18px;
+  justify-content: center;
+}
+
+.event-yellow_card .event-icon {
+  color: #e0ad00;
+}
+
+.event-red_card .event-icon {
+  color: #c62828;
+}
+
+.event-substitution .event-icon {
+  color: #16794a;
+  font-size: 18px;
+}

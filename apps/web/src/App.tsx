@@ -30,6 +30,35 @@ type Match = {
   season: Season
 }
 
+type EventPlayer = {
+  id: number
+  firstName: string
+  lastName: string
+}
+
+type MatchEvent = {
+  id: number
+  type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION'
+  minute: number | null
+  matchId: number
+  teamId: number | null
+  playerId: number | null
+  assistPlayerId: number | null
+  staffMemberId: number | null
+  playerOutId: number | null
+  playerInId: number | null
+  isOwnGoal: boolean
+  player: EventPlayer | null
+  assistPlayer: EventPlayer | null
+  staffMember: {
+    id: number
+    firstName: string
+    lastName: string
+  } | null
+  playerOut: EventPlayer | null
+  playerIn: EventPlayer | null
+}
+
 function Header() {
   return (
     <header className="header">
@@ -181,21 +210,36 @@ function MatchListPage() {
 
 function MatchDetailPage() {
   const { id } = useParams()
+
   const [match, setMatch] = useState<Match | null>(null)
+  const [events, setEvents] = useState<MatchEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadMatch() {
       try {
-        const response = await fetch(`http://localhost:3000/matches/${id}`)
+        setLoading(true)
+        setError(null)
 
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status}`)
+        const [matchResponse, eventsResponse] = await Promise.all([
+          fetch(`http://localhost:3000/matches/${id}`),
+          fetch(`http://localhost:3000/match-events/match/${id}`),
+        ])
+
+        if (!matchResponse.ok) {
+          throw new Error(`Match request failed: ${matchResponse.status}`)
         }
 
-        const data: Match = await response.json()
-        setMatch(data)
+        if (!eventsResponse.ok) {
+          throw new Error(`Events request failed: ${eventsResponse.status}`)
+        }
+
+        const matchData: Match = await matchResponse.json()
+        const eventsData: MatchEvent[] = await eventsResponse.json()
+
+        setMatch(matchData)
+        setEvents(eventsData)
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Could not load match',
@@ -207,6 +251,56 @@ function MatchDetailPage() {
 
     void loadMatch()
   }, [id])
+
+  function getEventTitle(event: MatchEvent) {
+    switch (event.type) {
+      case 'GOAL':
+        return event.isOwnGoal ? 'Own goal' : 'Goal'
+
+      case 'YELLOW_CARD':
+        return 'Yellow card'
+
+      case 'RED_CARD':
+        return 'Red card'
+
+      case 'SUBSTITUTION':
+        return 'Substitution'
+
+      default:
+        return event.type
+    }
+  }
+
+  function getEventDescription(event: MatchEvent) {
+    if (event.type === 'SUBSTITUTION') {
+      const playerOut = event.playerOut
+        ? `${event.playerOut.firstName} ${event.playerOut.lastName}`
+        : 'Unknown player'
+
+      const playerIn = event.playerIn
+        ? `${event.playerIn.firstName} ${event.playerIn.lastName}`
+        : 'Unknown player'
+
+      return `${playerOut} → ${playerIn}`
+    }
+
+    if (event.staffMember) {
+      return `${event.staffMember.firstName} ${event.staffMember.lastName}`
+    }
+
+    if (event.player) {
+      const playerName =
+        `${event.player.firstName} ${event.player.lastName}`
+
+      if (event.type === 'GOAL' && event.assistPlayer) {
+        return `${playerName} · Assist: ${event.assistPlayer.firstName} ${event.assistPlayer.lastName}`
+      }
+
+      return playerName
+    }
+
+    return 'No player information'
+  }
 
   return (
     <main className="main">
@@ -232,48 +326,96 @@ function MatchDetailPage() {
       )}
 
       {!loading && !error && match && (
-        <section className="matches-section match-detail">
-          <div className="match-meta">
-            <div>
-              <strong>{match.season.competition.name}</strong>
-              <span>{match.season.name}</span>
-            </div>
+        <>
+          <section className="matches-section match-detail">
+            <div className="match-meta">
+              <div>
+                <strong>{match.season.competition.name}</strong>
+                <span>{match.season.name}</span>
+              </div>
 
-            <span
-              className={`match-status match-status-${match.status.toLowerCase()}`}
-            >
-              {match.status.replace('_', ' ')}
-            </span>
-          </div>
-
-          <div className="match-content match-detail-score">
-            <div className="team team-home">
-              <strong>{match.homeTeam.name}</strong>
-
-              {match.homeTeam.city && (
-                <span>{match.homeTeam.city}</span>
-              )}
-            </div>
-
-            <div className="score">
-              <strong>
-                {match.homeScore} : {match.awayScore}
-              </strong>
-
-              <span>
-                {new Date(match.date).toLocaleString()}
+              <span
+                className={`match-status match-status-${match.status.toLowerCase()}`}
+              >
+                {match.status.replace('_', ' ')}
               </span>
             </div>
 
-            <div className="team team-away">
-              <strong>{match.awayTeam.name}</strong>
+            <div className="match-content match-detail-score">
+              <div className="team team-home">
+                <strong>{match.homeTeam.name}</strong>
 
-              {match.awayTeam.city && (
-                <span>{match.awayTeam.city}</span>
-              )}
+                {match.homeTeam.city && (
+                  <span>{match.homeTeam.city}</span>
+                )}
+              </div>
+
+              <div className="score">
+                <strong>
+                  {match.homeScore} : {match.awayScore}
+                </strong>
+
+                <span>
+                  {new Date(match.date).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="team team-away">
+                <strong>{match.awayTeam.name}</strong>
+
+                {match.awayTeam.city && (
+                  <span>{match.awayTeam.city}</span>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <section className="matches-section timeline-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Match timeline</p>
+                <h2>Events</h2>
+              </div>
+
+              <span className="status-badge">
+                {events.length} events
+              </span>
+            </div>
+
+            {events.length === 0 ? (
+              <div className="empty-state">
+                <h3>No match events yet</h3>
+              </div>
+            ) : (
+              <div className="timeline">
+                {events.map((event) => (
+                  <div className="timeline-event" key={event.id}>
+                    <div className="timeline-minute">
+                      {event.minute !== null ? `${event.minute}'` : '—'}
+                    </div>
+
+                    <div className="timeline-marker" />
+
+                    <div className="timeline-content">
+  <strong className={`event-title event-${event.type.toLowerCase()}`}>
+    <span className="event-icon">
+      {event.type === 'GOAL' && '⚽'}
+      {event.type === 'YELLOW_CARD' && '■'}
+      {event.type === 'RED_CARD' && '■'}
+      {event.type === 'SUBSTITUTION' && '↕'}
+    </span>
+
+    {getEventTitle(event)}
+  </strong>
+
+  <span>{getEventDescription(event)}</span>
+</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </main>
   )
