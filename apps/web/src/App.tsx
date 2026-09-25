@@ -28,6 +28,8 @@ type Match = {
   homeTeam: Team
   awayTeam: Team
   season: Season
+  matchMinute?: number | null
+  clockDisplay?: string | null
 }
 
 type EventPlayer = {
@@ -235,7 +237,10 @@ function MatchDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function loadMatch() {
+    let cancelled = false
+    let intervalId: ReturnType<typeof setInterval> | undefined
+
+    async function loadInitialData() {
       try {
         setLoading(true)
         setError(null)
@@ -270,19 +275,71 @@ function MatchDetailPage() {
         const squadData: MatchSquadPlayer[] =
           await squadResponse.json()
 
+        if (cancelled) {
+          return
+        }
+
         setMatch(matchData)
         setEvents(eventsData)
         setSquad(squadData)
+
+        if (matchData.status === 'LIVE') {
+          intervalId = setInterval(() => {
+            void refreshLiveData()
+          }, 15000)
+        }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Could not load match',
-        )
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Could not load match',
+          )
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
-    void loadMatch()
+    async function refreshLiveData() {
+      try {
+        const [matchResponse, eventsResponse] = await Promise.all([
+          fetch(`http://localhost:3000/matches/${id}`),
+          fetch(`http://localhost:3000/match-events/match/${id}`),
+        ])
+
+        if (!matchResponse.ok || !eventsResponse.ok) {
+          return
+        }
+
+        const matchData: Match = await matchResponse.json()
+        const eventsData: MatchEvent[] = await eventsResponse.json()
+
+        if (cancelled) {
+          return
+        }
+
+        setMatch(matchData)
+        setEvents(eventsData)
+
+        if (matchData.status !== 'LIVE' && intervalId) {
+          clearInterval(intervalId)
+          intervalId = undefined
+        }
+      } catch {
+        // Keep the last successfully loaded data on screen.
+      }
+    }
+
+    void loadInitialData()
+
+    return () => {
+      cancelled = true
+
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
   }, [id])
 
   function getEventTitle(event: MatchEvent) {
@@ -416,6 +473,15 @@ function MatchDetailPage() {
                   {match.homeScore} : {match.awayScore}
                 </strong>
 
+                {(match.status === 'LIVE' ||
+                  match.status === 'HALF_TIME' ||
+                  match.status === 'FINISHED') &&
+                  match.clockDisplay && (
+                    <span className="match-clock">
+                      {match.clockDisplay}
+                    </span>
+                  )}
+
                 <span>
                   {new Date(match.date).toLocaleString()}
                 </span>
@@ -465,8 +531,8 @@ function MatchDetailPage() {
                       >
                         <span className="event-icon">
                           {event.type === 'GOAL' && 'G'}
-                          {event.type === 'YELLOW_CARD' && '■'}
-                          {event.type === 'RED_CARD' && '■'}
+                          {event.type === 'YELLOW_CARD' && 'Y'}
+                          {event.type === 'RED_CARD' && 'R'}
                           {event.type === 'SUBSTITUTION' && 'S'}
                         </span>
 
