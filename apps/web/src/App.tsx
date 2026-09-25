@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
+import AdminLoginPage from './AdminLoginPage'
+import AdminMatchPage from './AdminMatchPage'
 import './App.css'
 
 type Team = {
@@ -695,9 +697,14 @@ function App() {
       <Header />
 
       <Routes>
-        <Route path="/" element={<MatchListPage />} />
-        <Route path="/matches/:id" element={<MatchDetailPage />} />
-      </Routes>
+  <Route path="/" element={<MatchListPage />} />
+  <Route path="/matches/:id" element={<MatchDetailPage />} />
+  <Route path="/admin/login" element={<AdminLoginPage />} />
+  <Route
+  path="/admin/matches/:id"
+  element={<AdminMatchPage />}
+/>
+</Routes>
     </div>
   )
 }
