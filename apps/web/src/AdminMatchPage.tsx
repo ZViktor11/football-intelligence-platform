@@ -166,6 +166,13 @@ function AdminMatchPage() {
   const [eventMessage, setEventMessage] = useState<string | null>(null)
   const [editingEventId, setEditingEventId] = useState<number | null>(null)
   const [editEventMinute, setEditEventMinute] = useState('')
+  const [editEventType, setEditEventType] = useState<MatchEventType>('GOAL')
+  const [editEventTeamId, setEditEventTeamId] = useState('')
+  const [editEventPlayerId, setEditEventPlayerId] = useState('')
+  const [editEventAssistPlayerId, setEditEventAssistPlayerId] = useState('')
+  const [editEventPlayerOutId, setEditEventPlayerOutId] = useState('')
+  const [editEventPlayerInId, setEditEventPlayerInId] = useState('')
+  const [editEventIsOwnGoal, setEditEventIsOwnGoal] = useState(false)
   const [savingEventId, setSavingEventId] = useState<number | null>(null)
 
 
@@ -444,213 +451,192 @@ function AdminMatchPage() {
 
 
 
-  const onPitchPlayerIds = useMemo(() => {
+  const getOnPitchPlayerIdsAtMinute = useCallback(
+    (minute: number | null, excludedEventId: number | null = null) => {
+      const ids = new Set<number>()
 
-    const ids = new Set<number>()
-
-
-
-    squad.forEach((entry) => {
-
-      if (entry.role === 'STARTER') {
-
-        ids.add(entry.playerId)
-
-      }
-
-    })
-
-
-
-    const substitutions = events
-
-      .filter(
-
-        (event) =>
-
-          event.type === 'SUBSTITUTION' &&
-
-          event.playerOutId !== null &&
-
-          event.playerInId !== null,
-
-      )
-
-      .slice()
-
-      .sort((a, b) => {
-
-        const minuteA = a.minute ?? 0
-
-        const minuteB = b.minute ?? 0
-
-
-
-        if (minuteA !== minuteB) {
-
-          return minuteA - minuteB
-
+      squad.forEach((entry) => {
+        if (entry.role === 'STARTER') {
+          ids.add(entry.playerId)
         }
-
-
-
-        return a.id - b.id
-
       })
 
+      const substitutions = events
+        .filter(
+          (event) =>
+            event.id !== excludedEventId &&
+            event.type === 'SUBSTITUTION' &&
+            event.playerOutId !== null &&
+            event.playerInId !== null &&
+            (minute === null ||
+              event.minute === null ||
+              event.minute <= minute),
+        )
+        .slice()
+        .sort((a, b) => {
+          const minuteA = a.minute ?? 0
+          const minuteB = b.minute ?? 0
 
+          if (minuteA !== minuteB) {
+            return minuteA - minuteB
+          }
 
-    substitutions.forEach((event) => {
+          return a.id - b.id
+        })
 
-      if (event.playerOutId !== null) {
+      substitutions.forEach((event) => {
+        if (event.playerOutId !== null) {
+          ids.delete(event.playerOutId)
+        }
 
-        ids.delete(event.playerOutId)
+        if (event.playerInId !== null) {
+          ids.add(event.playerInId)
+        }
+      })
 
-      }
-
-
-
-      if (event.playerInId !== null) {
-
-        ids.add(event.playerInId)
-
-      }
-
-    })
-
-
-
-    return ids
-
-  }, [squad, events])
-
-
+      return ids
+    },
+    [squad, events],
+  )
 
   const selectedGoalTeamId =
-
     goalTeamId === '' ? null : Number(goalTeamId)
 
+  const goalEffectiveMinute =
+    goalMinute === ''
+      ? match?.matchMinute ?? null
+      : Number(goalMinute)
 
+  const goalOnPitchPlayerIds = useMemo(
+    () => getOnPitchPlayerIdsAtMinute(goalEffectiveMinute),
+    [getOnPitchPlayerIdsAtMinute, goalEffectiveMinute],
+  )
 
   const scorerOptions = useMemo(() => {
-
     if (selectedGoalTeamId === null) {
-
       return []
-
     }
 
-
-
     return squad.filter(
-
       (entry) =>
-
         entry.teamId === selectedGoalTeamId &&
-
-        onPitchPlayerIds.has(entry.playerId),
-
+        goalOnPitchPlayerIds.has(entry.playerId),
     )
-
-  }, [squad, selectedGoalTeamId, onPitchPlayerIds])
-
-
+  }, [squad, selectedGoalTeamId, goalOnPitchPlayerIds])
 
   const assistOptions = useMemo(() => {
-
     return scorerOptions.filter(
-
       (entry) => String(entry.playerId) !== goalPlayerId,
-
     )
-
   }, [scorerOptions, goalPlayerId])
 
-
-
   const selectedCardTeamId =
-
     cardTeamId === '' ? null : Number(cardTeamId)
 
+  const cardEffectiveMinute =
+    cardMinute === ''
+      ? match?.matchMinute ?? null
+      : Number(cardMinute)
 
+  const cardOnPitchPlayerIds = useMemo(
+    () => getOnPitchPlayerIdsAtMinute(cardEffectiveMinute),
+    [getOnPitchPlayerIdsAtMinute, cardEffectiveMinute],
+  )
 
   const cardPlayerOptions = useMemo(() => {
-
     if (selectedCardTeamId === null) {
-
       return []
-
     }
 
-
-
     return squad.filter(
-
       (entry) =>
-
         entry.teamId === selectedCardTeamId &&
-
-        onPitchPlayerIds.has(entry.playerId),
-
+        cardOnPitchPlayerIds.has(entry.playerId),
     )
-
-  }, [squad, selectedCardTeamId, onPitchPlayerIds])
-
-
+  }, [squad, selectedCardTeamId, cardOnPitchPlayerIds])
 
   const selectedSubstitutionTeamId =
-
     substitutionTeamId === ''
-
       ? null
-
       : Number(substitutionTeamId)
 
+  const substitutionEffectiveMinute =
+    substitutionMinute === ''
+      ? match?.matchMinute ?? null
+      : Number(substitutionMinute)
 
+  const substitutionOnPitchPlayerIds = useMemo(
+    () => getOnPitchPlayerIdsAtMinute(substitutionEffectiveMinute),
+    [getOnPitchPlayerIdsAtMinute, substitutionEffectiveMinute],
+  )
 
   const substitutionTeamPlayers = useMemo(() => {
-
     if (selectedSubstitutionTeamId === null) {
-
       return []
-
     }
 
-
-
     return squad.filter(
-
       (entry) => entry.teamId === selectedSubstitutionTeamId,
-
     )
-
   }, [squad, selectedSubstitutionTeamId])
 
-
-
   const playerOutOptions = useMemo(() => {
-
     return substitutionTeamPlayers.filter((entry) =>
-
-      onPitchPlayerIds.has(entry.playerId),
-
+      substitutionOnPitchPlayerIds.has(entry.playerId),
     )
-
-  }, [substitutionTeamPlayers, onPitchPlayerIds])
-
-
+  }, [substitutionTeamPlayers, substitutionOnPitchPlayerIds])
 
   const playerInOptions = useMemo(() => {
-
     return substitutionTeamPlayers.filter(
-
-      (entry) => !onPitchPlayerIds.has(entry.playerId),
-
+      (entry) => !substitutionOnPitchPlayerIds.has(entry.playerId),
     )
+  }, [substitutionTeamPlayers, substitutionOnPitchPlayerIds])
 
-  }, [substitutionTeamPlayers, onPitchPlayerIds])
+  const editEffectiveMinute =
+    editEventMinute === '' ? null : Number(editEventMinute)
 
+  const editOnPitchPlayerIds = useMemo(
+    () =>
+      getOnPitchPlayerIdsAtMinute(
+        editEffectiveMinute,
+        editingEventId,
+      ),
+    [
+      getOnPitchPlayerIdsAtMinute,
+      editEffectiveMinute,
+      editingEventId,
+    ],
+  )
 
+  const editTeamPlayers = useMemo(() => {
+    if (editEventTeamId === '') {
+      return []
+    }
+
+    return squad.filter(
+      (entry) => String(entry.teamId) === editEventTeamId,
+    )
+  }, [squad, editEventTeamId])
+
+  const editPlayerOptions = useMemo(() => {
+    return editTeamPlayers.filter((entry) =>
+      editOnPitchPlayerIds.has(entry.playerId),
+    )
+  }, [editTeamPlayers, editOnPitchPlayerIds])
+
+  const editAssistOptions = useMemo(() => {
+    return editPlayerOptions.filter(
+      (entry) => String(entry.playerId) !== editEventPlayerId,
+    )
+  }, [editPlayerOptions, editEventPlayerId])
+
+  const editPlayerOutOptions = editPlayerOptions
+
+  const editPlayerInOptions = useMemo(() => {
+    return editTeamPlayers.filter(
+      (entry) => !editOnPitchPlayerIds.has(entry.playerId),
+    )
+  }, [editTeamPlayers, editOnPitchPlayerIds])
 
   function getErrorMessage(
 
@@ -918,6 +904,19 @@ const awayPlayers = players.filter(
   function startEditingEvent(event: MatchEvent) {
     setEditingEventId(event.id)
     setEditEventMinute(event.minute == null ? '' : String(event.minute))
+    setEditEventType(event.type)
+    setEditEventTeamId(event.teamId == null ? '' : String(event.teamId))
+    setEditEventPlayerId(event.playerId == null ? '' : String(event.playerId))
+    setEditEventAssistPlayerId(
+      event.assistPlayerId == null ? '' : String(event.assistPlayerId),
+    )
+    setEditEventPlayerOutId(
+      event.playerOutId == null ? '' : String(event.playerOutId),
+    )
+    setEditEventPlayerInId(
+      event.playerInId == null ? '' : String(event.playerInId),
+    )
+    setEditEventIsOwnGoal(event.isOwnGoal)
     setEventMessage(null)
     setError(null)
   }
@@ -927,7 +926,7 @@ const awayPlayers = players.filter(
     setEditEventMinute('')
   }
 
-  async function saveEventMinute(eventId: number) {
+  async function saveEvent(eventId: number) {
     const token = localStorage.getItem('accessToken')
 
     if (!token) {
@@ -947,6 +946,51 @@ const awayPlayers = players.filter(
       return
     }
 
+    if (editEventTeamId === '') {
+      setError('Select the event team.')
+      return
+    }
+
+    const body: Record<string, string | number | boolean | null> = {
+      type: editEventType,
+      minute,
+      teamId: Number(editEventTeamId),
+    }
+
+    if (editEventType === 'GOAL') {
+      body.playerId = editEventPlayerId === '' ? null : Number(editEventPlayerId)
+      body.assistPlayerId =
+        editEventAssistPlayerId === '' || editEventIsOwnGoal
+          ? null
+          : Number(editEventAssistPlayerId)
+      body.isOwnGoal = editEventIsOwnGoal
+      body.playerOutId = null
+      body.playerInId = null
+    } else if (
+      editEventType === 'YELLOW_CARD' ||
+      editEventType === 'RED_CARD'
+    ) {
+      if (editEventPlayerId === '') {
+        setError('Select the player receiving the card.')
+        return
+      }
+      body.playerId = Number(editEventPlayerId)
+      body.assistPlayerId = null
+      body.isOwnGoal = false
+      body.playerOutId = null
+      body.playerInId = null
+    } else {
+      if (editEventPlayerOutId === '' || editEventPlayerInId === '') {
+        setError('Select both substitution players.')
+        return
+      }
+      body.playerId = null
+      body.assistPlayerId = null
+      body.isOwnGoal = false
+      body.playerOutId = Number(editEventPlayerOutId)
+      body.playerInId = Number(editEventPlayerInId)
+    }
+
     try {
       setSavingEventId(eventId)
       setEventMessage(null)
@@ -960,7 +1004,7 @@ const awayPlayers = players.filter(
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ minute }),
+          body: JSON.stringify(body),
         },
       )
 
@@ -978,14 +1022,12 @@ const awayPlayers = players.filter(
 
       if (!response.ok) {
         let message = `Event update failed: ${response.status}`
-
         try {
           const errorData: unknown = await response.json()
           message = getErrorMessage(errorData, message)
         } catch {
           // Keep fallback message.
         }
-
         throw new Error(message)
       }
 
@@ -3141,30 +3183,180 @@ const awayPlayers = players.filter(
                       match?.status === 'HALF_TIME') && (
                       <>
                         {editingEventId === event.id ? (
-                          <span>
-                            {' '}
-                            <label htmlFor={`edit-event-minute-${event.id}`}>
-                              Minute
-                            </label>{' '}
-                            <input
-                              id={`edit-event-minute-${event.id}`}
-                              type="number"
-                              min="0"
-                              max="120"
-                              value={editEventMinute}
-                              disabled={savingEventId === event.id}
-                              onChange={(changeEvent) =>
-                                setEditEventMinute(changeEvent.target.value)
-                              }
-                            />{' '}
+                          <div>
+                            <div>
+                              <label htmlFor={`edit-event-minute-${event.id}`}>Minute</label>{' '}
+                              <input
+                                id={`edit-event-minute-${event.id}`}
+                                type="number"
+                                min="0"
+                                max="120"
+                                value={editEventMinute}
+                                disabled={savingEventId === event.id}
+                                onChange={(changeEvent) =>
+                                  setEditEventMinute(changeEvent.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <label htmlFor={`edit-event-team-${event.id}`}>Team</label>{' '}
+                              <select
+                                id={`edit-event-team-${event.id}`}
+                                value={editEventTeamId}
+                                disabled={savingEventId === event.id}
+                                onChange={(changeEvent) => {
+                                  setEditEventTeamId(changeEvent.target.value)
+                                  setEditEventPlayerId('')
+                                  setEditEventAssistPlayerId('')
+                                  setEditEventPlayerOutId('')
+                                  setEditEventPlayerInId('')
+                                }}
+                              >
+                                <option value="">Select team</option>
+                                <option value={match.homeTeam.id}>{match.homeTeam.name}</option>
+                                <option value={match.awayTeam.id}>{match.awayTeam.name}</option>
+                              </select>
+                            </div>
+
+                            {(editEventType === 'GOAL' ||
+                              editEventType === 'YELLOW_CARD' ||
+                              editEventType === 'RED_CARD') && (
+                              <div>
+                                <label htmlFor={`edit-event-player-${event.id}`}>
+                                  {editEventType === 'GOAL' ? 'Scorer' : 'Player'}
+                                </label>{' '}
+                                <select
+                                  id={`edit-event-player-${event.id}`}
+                                  value={editEventPlayerId}
+                                  disabled={savingEventId === event.id || editEventTeamId === ''}
+                                  onChange={(changeEvent) => {
+                                    setEditEventPlayerId(changeEvent.target.value)
+                                    if (changeEvent.target.value === editEventAssistPlayerId) {
+                                      setEditEventAssistPlayerId('')
+                                    }
+                                  }}
+                                >
+                                  <option value="">
+                                    {editEventType === 'GOAL' ? 'No scorer / unknown' : 'Select player'}
+                                  </option>
+                                  {editPlayerOptions.map((entry) => (
+                                      <option key={entry.id} value={entry.playerId}>
+                                        {entry.player.firstName} {entry.player.lastName} (#{entry.playerId})
+                                      </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {editEventType === 'GOAL' && (
+                              <>
+                                <div>
+                                  <label htmlFor={`edit-event-assist-${event.id}`}>Assist</label>{' '}
+                                  <select
+                                    id={`edit-event-assist-${event.id}`}
+                                    value={editEventAssistPlayerId}
+                                    disabled={
+                                      savingEventId === event.id ||
+                                      editEventTeamId === '' ||
+                                      editEventIsOwnGoal
+                                    }
+                                    onChange={(changeEvent) =>
+                                      setEditEventAssistPlayerId(changeEvent.target.value)
+                                    }
+                                  >
+                                    <option value="">No assist</option>
+                                    {editAssistOptions.map((entry) => (
+                                        <option key={entry.id} value={entry.playerId}>
+                                          {entry.player.firstName} {entry.player.lastName} (#{entry.playerId})
+                                        </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <label>
+                                  <input
+                                    type="checkbox"
+                                    checked={editEventIsOwnGoal}
+                                    disabled={savingEventId === event.id}
+                                    onChange={(changeEvent) => {
+                                      setEditEventIsOwnGoal(changeEvent.target.checked)
+                                      if (changeEvent.target.checked) {
+                                        setEditEventAssistPlayerId('')
+                                      }
+                                    }}
+                                  />{' '}
+                                  Own goal
+                                </label>
+                              </>
+                            )}
+
+                            {(editEventType === 'YELLOW_CARD' ||
+                              editEventType === 'RED_CARD') && (
+                              <div>
+                                <label htmlFor={`edit-event-card-type-${event.id}`}>Card</label>{' '}
+                                <select
+                                  id={`edit-event-card-type-${event.id}`}
+                                  value={editEventType}
+                                  disabled={savingEventId === event.id}
+                                  onChange={(changeEvent) =>
+                                    setEditEventType(
+                                      changeEvent.target.value as 'YELLOW_CARD' | 'RED_CARD',
+                                    )
+                                  }
+                                >
+                                  <option value="YELLOW_CARD">Yellow card</option>
+                                  <option value="RED_CARD">Red card</option>
+                                </select>
+                              </div>
+                            )}
+
+                            {editEventType === 'SUBSTITUTION' && (
+                              <>
+                                <div>
+                                  <label htmlFor={`edit-event-out-${event.id}`}>Player out</label>{' '}
+                                  <select
+                                    id={`edit-event-out-${event.id}`}
+                                    value={editEventPlayerOutId}
+                                    disabled={savingEventId === event.id || editEventTeamId === ''}
+                                    onChange={(changeEvent) =>
+                                      setEditEventPlayerOutId(changeEvent.target.value)
+                                    }
+                                  >
+                                    <option value="">Select player</option>
+                                    {editPlayerOutOptions.map((entry) => (
+                                        <option key={entry.id} value={entry.playerId}>
+                                          {entry.player.firstName} {entry.player.lastName} (#{entry.playerId})
+                                        </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label htmlFor={`edit-event-in-${event.id}`}>Player in</label>{' '}
+                                  <select
+                                    id={`edit-event-in-${event.id}`}
+                                    value={editEventPlayerInId}
+                                    disabled={savingEventId === event.id || editEventTeamId === ''}
+                                    onChange={(changeEvent) =>
+                                      setEditEventPlayerInId(changeEvent.target.value)
+                                    }
+                                  >
+                                    <option value="">Select player</option>
+                                    {editPlayerInOptions.map((entry) => (
+                                        <option key={entry.id} value={entry.playerId}>
+                                          {entry.player.firstName} {entry.player.lastName} (#{entry.playerId})
+                                        </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </>
+                            )}
+
                             <button
                               type="button"
                               disabled={savingEventId === event.id}
-                              onClick={() => void saveEventMinute(event.id)}
+                              onClick={() => void saveEvent(event.id)}
                             >
-                              {savingEventId === event.id
-                                ? 'Saving...'
-                                : 'Save'}
+                              {savingEventId === event.id ? 'Saving...' : 'Save'}
                             </button>{' '}
                             <button
                               type="button"
@@ -3173,7 +3365,7 @@ const awayPlayers = players.filter(
                             >
                               Cancel
                             </button>
-                          </span>
+                          </div>
                         ) : (
                           <button
                             type="button"

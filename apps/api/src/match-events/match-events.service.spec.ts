@@ -676,5 +676,111 @@ it('should allow a system admin to delete an event after the match is finished',
     });
   });
 
+  describe('card pitch state', () => {
+    it('should allow a card for a player who is on the pitch', async () => {
+      prismaMock.player.findUnique.mockResolvedValue({ id: 1, teamId: 1 });
+      prismaMock.matchSquadPlayer.findUnique.mockResolvedValue({
+        matchId: 1, teamId: 1, playerId: 1, role: 'STARTER',
+      });
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+      prismaMock.matchEvent.create.mockImplementation(async ({ data }) => ({
+        id: 30,
+        ...data,
+      }));
+
+      await expect(
+        service.create(
+          {
+            type: 'YELLOW_CARD',
+            minute: 20,
+            matchId: 1,
+            teamId: 1,
+            playerId: 1,
+          },
+          2,
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          type: 'YELLOW_CARD',
+          minute: 20,
+          playerId: 1,
+        }),
+      );
+    });
+
+    it('should reject a card for a substitute who has not entered the pitch', async () => {
+      prismaMock.player.findUnique.mockResolvedValue({ id: 4, teamId: 1 });
+      prismaMock.matchSquadPlayer.findUnique.mockResolvedValue({
+        matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE',
+      });
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.create(
+          {
+            type: 'YELLOW_CARD',
+            minute: 20,
+            matchId: 1,
+            teamId: 1,
+            playerId: 4,
+          },
+          2,
+        ),
+      ).rejects.toThrow(
+        'Carded player is not on the pitch at this minute',
+      );
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject a card for a player after they were substituted off', async () => {
+      prismaMock.player.findUnique.mockResolvedValue({ id: 1, teamId: 1 });
+      prismaMock.matchSquadPlayer.findUnique.mockResolvedValue({
+        matchId: 1, teamId: 1, playerId: 1, role: 'STARTER',
+      });
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([
+        {
+          id: 99,
+          matchId: 1,
+          teamId: 1,
+          type: 'SUBSTITUTION',
+          minute: 14,
+          playerOutId: 1,
+          playerInId: 4,
+          createdAt: new Date('2026-09-22T10:14:00Z'),
+        },
+      ]);
+
+      await expect(
+        service.create(
+          {
+            type: 'RED_CARD',
+            minute: 20,
+            matchId: 1,
+            teamId: 1,
+            playerId: 1,
+          },
+          2,
+        ),
+      ).rejects.toThrow(
+        'Carded player is not on the pitch at this minute',
+      );
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+  });
+
   });
 });
+

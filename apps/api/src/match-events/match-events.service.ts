@@ -357,6 +357,19 @@ export class MatchEventsService {
         teamId,
         playerId,
       );
+
+      const playersOnPitch =
+        await this.getPlayersOnPitchAtMinute(
+          matchId,
+          teamId,
+          minute,
+        );
+
+      if (!playersOnPitch.has(playerId)) {
+        throw new BadRequestException(
+          'Carded player is not on the pitch at this minute',
+        );
+      }
     }
 
     if (staffMemberId !== undefined) {
