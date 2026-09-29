@@ -164,6 +164,9 @@ function AdminMatchPage() {
   const [addingSubstitution, setAddingSubstitution] = useState(false)
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null)
   const [eventMessage, setEventMessage] = useState<string | null>(null)
+  const [editingEventId, setEditingEventId] = useState<number | null>(null)
+  const [editEventMinute, setEditEventMinute] = useState('')
+  const [savingEventId, setSavingEventId] = useState<number | null>(null)
 
 
 
@@ -911,6 +914,95 @@ const awayPlayers = players.filter(
   }
 
 
+
+  function startEditingEvent(event: MatchEvent) {
+    setEditingEventId(event.id)
+    setEditEventMinute(event.minute == null ? '' : String(event.minute))
+    setEventMessage(null)
+    setError(null)
+  }
+
+  function cancelEditingEvent() {
+    setEditingEventId(null)
+    setEditEventMinute('')
+  }
+
+  async function saveEventMinute(eventId: number) {
+    const token = localStorage.getItem('accessToken')
+
+    if (!token) {
+      navigate('/admin/login')
+      return
+    }
+
+    if (editEventMinute === '') {
+      setError('Enter the event minute.')
+      return
+    }
+
+    const minute = Number(editEventMinute)
+
+    if (!Number.isInteger(minute) || minute < 0 || minute > 120) {
+      setError('Event minute must be a whole number between 0 and 120.')
+      return
+    }
+
+    try {
+      setSavingEventId(eventId)
+      setEventMessage(null)
+      setError(null)
+
+      const response = await fetch(
+        `http://localhost:3000/match-events/${eventId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ minute }),
+        },
+      )
+
+      if (response.status === 401) {
+        localStorage.removeItem('accessToken')
+        navigate('/admin/login')
+        return
+      }
+
+      if (response.status === 403) {
+        throw new Error(
+          'You do not have permission to edit events from this match.',
+        )
+      }
+
+      if (!response.ok) {
+        let message = `Event update failed: ${response.status}`
+
+        try {
+          const errorData: unknown = await response.json()
+          message = getErrorMessage(errorData, message)
+        } catch {
+          // Keep fallback message.
+        }
+
+        throw new Error(message)
+      }
+
+      await Promise.all([loadEvents(), loadMatch()])
+      setEditingEventId(null)
+      setEditEventMinute('')
+      setEventMessage('Event updated successfully.')
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not update match event',
+      )
+    } finally {
+      setSavingEventId(null)
+    }
+  }
 
   async function deleteEvent(eventId: number) {
     const token = localStorage.getItem('accessToken')
@@ -3047,15 +3139,63 @@ const awayPlayers = players.filter(
 
                     {(match?.status === 'LIVE' ||
                       match?.status === 'HALF_TIME') && (
-                      <button
-                        type="button"
-                        disabled={deletingEventId === event.id}
-                        onClick={() => void deleteEvent(event.id)}
-                      >
-                        {deletingEventId === event.id
-                          ? 'Deleting...'
-                          : 'Delete'}
-                      </button>
+                      <>
+                        {editingEventId === event.id ? (
+                          <span>
+                            {' '}
+                            <label htmlFor={`edit-event-minute-${event.id}`}>
+                              Minute
+                            </label>{' '}
+                            <input
+                              id={`edit-event-minute-${event.id}`}
+                              type="number"
+                              min="0"
+                              max="120"
+                              value={editEventMinute}
+                              disabled={savingEventId === event.id}
+                              onChange={(changeEvent) =>
+                                setEditEventMinute(changeEvent.target.value)
+                              }
+                            />{' '}
+                            <button
+                              type="button"
+                              disabled={savingEventId === event.id}
+                              onClick={() => void saveEventMinute(event.id)}
+                            >
+                              {savingEventId === event.id
+                                ? 'Saving...'
+                                : 'Save'}
+                            </button>{' '}
+                            <button
+                              type="button"
+                              disabled={savingEventId === event.id}
+                              onClick={cancelEditingEvent}
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={deletingEventId === event.id}
+                            onClick={() => startEditingEvent(event)}
+                          >
+                            Edit
+                          </button>
+                        )}{' '}
+                        <button
+                          type="button"
+                          disabled={
+                            deletingEventId === event.id ||
+                            savingEventId === event.id
+                          }
+                          onClick={() => void deleteEvent(event.id)}
+                        >
+                          {deletingEventId === event.id
+                            ? 'Deleting...'
+                            : 'Delete'}
+                        </button>
+                      </>
                     )}
 
                   </div>
