@@ -162,6 +162,8 @@ function AdminMatchPage() {
   const [addingCard, setAddingCard] = useState(false)
 
   const [addingSubstitution, setAddingSubstitution] = useState(false)
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null)
+  const [eventMessage, setEventMessage] = useState<string | null>(null)
 
 
 
@@ -909,6 +911,73 @@ const awayPlayers = players.filter(
   }
 
 
+
+  async function deleteEvent(eventId: number) {
+    const token = localStorage.getItem('accessToken')
+
+    if (!token) {
+      navigate('/admin/login')
+      return
+    }
+
+    const confirmed = window.confirm('Delete this match event?')
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDeletingEventId(eventId)
+      setEventMessage(null)
+      setError(null)
+
+      const response = await fetch(
+        `http://localhost:3000/match-events/${eventId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+
+      if (response.status === 401) {
+        localStorage.removeItem('accessToken')
+        navigate('/admin/login')
+        return
+      }
+
+      if (response.status === 403) {
+        throw new Error(
+          'You do not have permission to delete events from this match.',
+        )
+      }
+
+      if (!response.ok) {
+        let message = `Event delete failed: ${response.status}`
+
+        try {
+          const errorData: unknown = await response.json()
+          message = getErrorMessage(errorData, message)
+        } catch {
+          // Keep fallback message.
+        }
+
+        throw new Error(message)
+      }
+
+      await Promise.all([loadEvents(), loadMatch()])
+      setEventMessage('Event deleted successfully.')
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not delete match event',
+      )
+    } finally {
+      setDeletingEventId(null)
+    }
+  }
 
   async function addGoal() {
 
@@ -2886,6 +2955,8 @@ const awayPlayers = players.filter(
 
             <p>{events.length} events</p>
 
+            {eventMessage && <p>{eventMessage}</p>}
+
 
 
             {events.length === 0 ? (
@@ -2973,6 +3044,19 @@ const awayPlayers = players.filter(
                         </span>
 
                       )}
+
+                    {(match?.status === 'LIVE' ||
+                      match?.status === 'HALF_TIME') && (
+                      <button
+                        type="button"
+                        disabled={deletingEventId === event.id}
+                        onClick={() => void deleteEvent(event.id)}
+                      >
+                        {deletingEventId === event.id
+                          ? 'Deleting...'
+                          : 'Delete'}
+                      </button>
+                    )}
 
                   </div>
 
