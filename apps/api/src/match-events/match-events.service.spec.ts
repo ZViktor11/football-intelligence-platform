@@ -781,6 +781,95 @@ it('should allow a system admin to delete an event after the match is finished',
     });
   });
 
+
+  describe('substitution pitch state', () => {
+    it('should allow a valid substitution from a starter to a substitute', async () => {
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+      prismaMock.matchEvent.create.mockImplementation(async ({ data }) => ({
+        id: 40,
+        ...data,
+      }));
+
+      await expect(
+        service.create(
+          {
+            type: 'SUBSTITUTION',
+            minute: 20,
+            matchId: 1,
+            teamId: 1,
+            playerOutId: 1,
+            playerInId: 4,
+          },
+          2,
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          type: 'SUBSTITUTION',
+          minute: 20,
+          playerOutId: 1,
+          playerInId: 4,
+        }),
+      );
+    });
+
+    it('should reject a substitution when the player out is not on the pitch', async () => {
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.create(
+          {
+            type: 'SUBSTITUTION',
+            minute: 20,
+            matchId: 1,
+            teamId: 1,
+            playerOutId: 4,
+            playerInId: 1,
+          },
+          2,
+        ),
+      ).rejects.toThrow(
+  'Player leaving the field is not currently on the pitch',
+);
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject a substitution when the player in is already on the pitch', async () => {
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 3, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.create(
+          {
+            type: 'SUBSTITUTION',
+            minute: 20,
+            matchId: 1,
+            teamId: 1,
+            playerOutId: 1,
+            playerInId: 3,
+          },
+          2,
+        ),
+      ).rejects.toThrow(
+  'Player entering the field is already on the pitch',
+);
+
+      expect(prismaMock.matchEvent.create).not.toHaveBeenCalled();
+    });
+  });
+
   });
 });
 
