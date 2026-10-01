@@ -384,6 +384,107 @@ export class MatchEventsService {
     }
   }
 
+  private async validateSubstitutionChronology(
+    matchId: number,
+    teamId: number,
+    candidate: {
+      minute: number;
+      playerOutId: number;
+      playerInId: number;
+    },
+    excludedEventId?: number,
+  ) {
+    const squad = await this.prisma.matchSquadPlayer.findMany({
+      where: {
+        matchId,
+        teamId,
+      },
+    });
+
+    const onPitch = new Set<number>();
+
+    for (const squadPlayer of squad) {
+      if (squadPlayer.role === 'STARTER') {
+        onPitch.add(squadPlayer.playerId);
+      }
+    }
+
+    const existingSubstitutions =
+      await this.prisma.matchEvent.findMany({
+        where: {
+          matchId,
+          teamId,
+          type: 'SUBSTITUTION',
+          ...(excludedEventId !== undefined
+            ? {
+                id: {
+                  not: excludedEventId,
+                },
+              }
+            : {}),
+        },
+        orderBy: [
+          {
+            minute: 'asc',
+          },
+          {
+            createdAt: 'asc',
+          },
+        ],
+      });
+
+    const substitutions = [
+      ...existingSubstitutions.map((substitution) => ({
+        minute: substitution.minute ?? 0,
+        playerOutId: substitution.playerOutId,
+        playerInId: substitution.playerInId,
+        isCandidate: false,
+      })),
+      {
+        minute: candidate.minute,
+        playerOutId: candidate.playerOutId,
+        playerInId: candidate.playerInId,
+        isCandidate: true,
+      },
+    ].sort((a, b) => {
+      if (a.minute !== b.minute) {
+        return a.minute - b.minute;
+      }
+
+      if (a.isCandidate === b.isCandidate) {
+        return 0;
+      }
+
+      return a.isCandidate ? 1 : -1;
+    });
+
+    for (const substitution of substitutions) {
+      if (
+        substitution.playerOutId === null ||
+        substitution.playerOutId === undefined ||
+        substitution.playerInId === null ||
+        substitution.playerInId === undefined
+      ) {
+        continue;
+      }
+
+      if (!onPitch.has(substitution.playerOutId)) {
+        throw new BadRequestException(
+          'Invalid substitution chronology: player leaving the field is not on the pitch',
+        );
+      }
+
+      if (onPitch.has(substitution.playerInId)) {
+        throw new BadRequestException(
+          'Invalid substitution chronology: player entering the field is already on the pitch',
+        );
+      }
+
+      onPitch.delete(substitution.playerOutId);
+      onPitch.add(substitution.playerInId);
+    }
+  }
+
   private async validateSubstitution(
     matchId: number,
     minute: number | undefined,
@@ -511,6 +612,17 @@ export class MatchEventsService {
         'Player entering the field is already on the pitch',
       );
     }
+
+    await this.validateSubstitutionChronology(
+      matchId,
+      teamId,
+      {
+        minute,
+        playerOutId,
+        playerInId,
+      },
+      excludedEventId,
+    );
   }
 
   private async validateEvent(
@@ -925,3 +1037,4 @@ userId: number,
     return deletedEvent;
   }
 }
+

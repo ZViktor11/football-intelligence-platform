@@ -947,7 +947,28 @@ it('should allow a system admin to delete an event after the match is finished',
       prismaMock.matchEvent.findUnique.mockResolvedValue(
         existingSubstitution,
       );
-      mockSelectedPlayers();
+      prismaMock.player.findUnique
+        .mockResolvedValueOnce({ id: 1, teamId: 1 })
+        .mockResolvedValueOnce({ id: 4, teamId: 1 });
+
+      prismaMock.matchSquadPlayer.findUnique
+        .mockResolvedValueOnce({
+          matchId: 1,
+          teamId: 1,
+          playerId: 1,
+          role: 'STARTER',
+        })
+        .mockResolvedValueOnce({
+          matchId: 1,
+          teamId: 1,
+          playerId: 4,
+          role: 'SUBSTITUTE',
+        });
+
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+      ]);
       prismaMock.matchEvent.findMany.mockResolvedValue([]);
       prismaMock.matchEvent.update.mockResolvedValue({
         ...existingSubstitution,
@@ -1068,6 +1089,164 @@ it('should allow a system admin to delete an event after the match is finished',
       ).not.toHaveBeenCalled();
     });
   });
+
+
+
+    it('should reject moving a substitution after a later substitution that depends on its incoming player', async () => {
+      prismaMock.matchEvent.findUnique.mockResolvedValue({
+        id: 50,
+        type: 'SUBSTITUTION',
+        minute: 20,
+        matchId: 1,
+        teamId: 1,
+        playerId: null,
+        assistPlayerId: null,
+        staffMemberId: null,
+        playerOutId: 1,
+        playerInId: 4,
+        isOwnGoal: false,
+        createdAt: new Date('2026-09-22T10:20:00Z'),
+        match: {
+          id: 1,
+          status: 'LIVE',
+          homeTeamId: 1,
+          awayTeamId: 2,
+        },
+      });
+
+      prismaMock.player.findUnique
+        .mockResolvedValueOnce({ id: 1, teamId: 1 })
+        .mockResolvedValueOnce({ id: 4, teamId: 1 });
+
+      prismaMock.matchSquadPlayer.findUnique
+        .mockResolvedValueOnce({
+          matchId: 1,
+          teamId: 1,
+          playerId: 1,
+          role: 'STARTER',
+        })
+        .mockResolvedValueOnce({
+          matchId: 1,
+          teamId: 1,
+          playerId: 4,
+          role: 'SUBSTITUTE',
+        });
+
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+        { matchId: 1, teamId: 1, playerId: 5, role: 'SUBSTITUTE' },
+      ]);
+
+      prismaMock.matchEvent.findMany.mockResolvedValue([
+        {
+          id: 51,
+          matchId: 1,
+          teamId: 1,
+          type: 'SUBSTITUTION',
+          minute: 60,
+          playerOutId: 4,
+          playerInId: 5,
+          createdAt: new Date('2026-09-22T11:00:00Z'),
+        },
+      ]);
+
+      await expect(
+        service.update(
+          50,
+          {
+            minute: 70,
+          },
+          2,
+        ),
+      ).rejects.toThrow(
+        'Invalid substitution chronology: player leaving the field is not on the pitch',
+      );
+
+      expect(
+        prismaMock.matchEvent.update,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should allow moving a substitution earlier when the resulting substitution chronology is valid', async () => {
+      prismaMock.matchEvent.findUnique.mockResolvedValue({
+        id: 50,
+        type: 'SUBSTITUTION',
+        minute: 30,
+        matchId: 1,
+        teamId: 1,
+        playerId: null,
+        assistPlayerId: null,
+        staffMemberId: null,
+        playerOutId: 1,
+        playerInId: 4,
+        isOwnGoal: false,
+        createdAt: new Date('2026-09-22T10:30:00Z'),
+        match: {
+          id: 1,
+          status: 'LIVE',
+          homeTeamId: 1,
+          awayTeamId: 2,
+        },
+      });
+
+      prismaMock.player.findUnique
+        .mockResolvedValueOnce({ id: 1, teamId: 1 })
+        .mockResolvedValueOnce({ id: 4, teamId: 1 });
+
+      prismaMock.matchSquadPlayer.findUnique
+        .mockResolvedValueOnce({
+          matchId: 1,
+          teamId: 1,
+          playerId: 1,
+          role: 'STARTER',
+        })
+        .mockResolvedValueOnce({
+          matchId: 1,
+          teamId: 1,
+          playerId: 4,
+          role: 'SUBSTITUTE',
+        });
+
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { matchId: 1, teamId: 1, playerId: 1, role: 'STARTER' },
+        { matchId: 1, teamId: 1, playerId: 4, role: 'SUBSTITUTE' },
+        { matchId: 1, teamId: 1, playerId: 5, role: 'SUBSTITUTE' },
+      ]);
+
+      prismaMock.matchEvent.findMany.mockResolvedValue([]);
+
+      prismaMock.matchEvent.update.mockResolvedValue({
+        id: 50,
+        type: 'SUBSTITUTION',
+        minute: 15,
+        matchId: 1,
+        teamId: 1,
+        playerId: null,
+        assistPlayerId: null,
+        staffMemberId: null,
+        playerOutId: 1,
+        playerInId: 4,
+        isOwnGoal: false,
+      });
+
+      await expect(
+        service.update(
+          50,
+          {
+            minute: 15,
+          },
+          2,
+        ),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          id: 50,
+          minute: 15,
+          playerOutId: 1,
+          playerInId: 4,
+        }),
+      );
+    });
 
   });
 });
