@@ -10,6 +10,13 @@ describe('MatchesService', () => {
   match: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    create: jest.fn(),
+  },
+  season: {
+    findUnique: jest.fn(),
+  },
+  team: {
+    findMany: jest.fn(),
   },
 };
 
@@ -359,4 +366,138 @@ describe('MatchesService', () => {
     expect(prismaMock.match.update).not.toHaveBeenCalled();
   });
 });
+  describe('match creation', () => {
+    const createMatchDto = {
+      date: '2026-11-01T16:00:00.000Z',
+      homeTeamId: 1,
+      awayTeamId: 2,
+      seasonId: 1,
+    };
+
+    it('should create a valid match', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        name: '2026/27',
+      });
+
+      prismaMock.team.findMany.mockResolvedValue([
+        {
+          id: 1,
+          name: 'Szeged FC',
+          seasonId: 1,
+        },
+        {
+          id: 2,
+          name: 'Budapest FC',
+          seasonId: 1,
+        },
+      ]);
+
+      prismaMock.match.create.mockResolvedValue({
+        id: 11,
+        ...createMatchDto,
+        date: new Date(createMatchDto.date),
+        status: MatchStatus.SCHEDULED,
+      });
+
+      await service.create(createMatchDto);
+
+      expect(prismaMock.match.create).toHaveBeenCalledWith({
+        data: {
+          date: new Date(createMatchDto.date),
+          homeTeamId: 1,
+          awayTeamId: 2,
+          seasonId: 1,
+        },
+      });
+    });
+
+    it('should reject a match with the same home and away team', async () => {
+      await expect(
+        service.create({
+          ...createMatchDto,
+          awayTeamId: 1,
+        }),
+      ).rejects.toThrow(
+        'Home team and away team must be different',
+      );
+
+      expect(
+        prismaMock.season.findUnique,
+      ).not.toHaveBeenCalled();
+
+      expect(
+        prismaMock.match.create,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should reject a match when the season does not exist', async () => {
+      prismaMock.season.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(createMatchDto),
+      ).rejects.toThrow(
+        'Season with ID 1 not found',
+      );
+
+      expect(
+        prismaMock.match.create,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should reject a match when one or both teams do not exist', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        name: '2026/27',
+      });
+
+      prismaMock.team.findMany.mockResolvedValue([
+        {
+          id: 1,
+          name: 'Szeged FC',
+          seasonId: 1,
+        },
+      ]);
+
+      await expect(
+        service.create(createMatchDto),
+      ).rejects.toThrow(
+        'One or both teams were not found',
+      );
+
+      expect(
+        prismaMock.match.create,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should reject a match when a team belongs to another season', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        name: '2026/27',
+      });
+
+      prismaMock.team.findMany.mockResolvedValue([
+        {
+          id: 1,
+          name: 'Szeged FC',
+          seasonId: 1,
+        },
+        {
+          id: 2,
+          name: 'Budapest FC',
+          seasonId: 2,
+        },
+      ]);
+
+      await expect(
+        service.create(createMatchDto),
+      ).rejects.toThrow(
+        'Both teams must belong to the selected season',
+      );
+
+      expect(
+        prismaMock.match.create,
+      ).not.toHaveBeenCalled();
+    });
+  });
 });
