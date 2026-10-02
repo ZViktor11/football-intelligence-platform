@@ -8,10 +8,11 @@ describe('MatchesService', () => {
 
   const prismaMock = {
   match: {
-    findUnique: jest.fn(),
-    update: jest.fn(),
-    create: jest.fn(),
-  },
+  findUnique: jest.fn(),
+  findMany: jest.fn(),
+  update: jest.fn(),
+  create: jest.fn(),
+},
   season: {
     findUnique: jest.fn(),
   },
@@ -500,4 +501,79 @@ describe('MatchesService', () => {
       ).not.toHaveBeenCalled();
     });
   });
+  describe('findOne', () => {
+  it('should return a match with its calculated clock', async () => {
+    const startedAt = new Date('2026-10-02T10:00:00.000Z');
+
+    jest.useFakeTimers();
+    jest.setSystemTime(
+      new Date('2026-10-02T10:10:00.000Z'),
+    );
+
+    prismaMock.match.findUnique.mockResolvedValue({
+      id: 1,
+      date: new Date('2026-10-02T10:00:00.000Z'),
+      status: MatchStatus.LIVE,
+      actualStartedAt: startedAt,
+      firstHalfEndedAt: null,
+      secondHalfStartedAt: null,
+      actualEndedAt: null,
+      homeScore: 0,
+      awayScore: 0,
+      homeTeam: {
+        id: 1,
+        name: 'Szeged FC',
+      },
+      awayTeam: {
+        id: 2,
+        name: 'Budapest FC',
+      },
+      season: {
+        id: 1,
+        competition: {
+          id: 1,
+          halfDurationMinutes: 45,
+        },
+      },
+      events: [],
+    });
+
+    const result = await service.findOne(1);
+
+    expect(result.matchMinute).toBe(11);
+    expect(result.clockDisplay).toBe("11'");
+
+    expect(prismaMock.match.findUnique).toHaveBeenCalledWith({
+      where: { id: 1 },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        season: {
+          include: {
+            competition: true,
+          },
+        },
+        events: {
+          include: {
+            player: true,
+          },
+          orderBy: [
+            { minute: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        },
+      },
+    });
+  });
+
+  it('should reject when the match does not exist', async () => {
+    prismaMock.match.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.findOne(999),
+    ).rejects.toThrow(
+      'Match with ID 999 not found',
+    );
+  });
+});
 });
