@@ -576,4 +576,103 @@ describe('MatchesService', () => {
     );
   });
 });
+describe('findAll', () => {
+  beforeEach(() => {
+    prismaMock.match.findMany.mockResolvedValue([]);
+  });
+
+  it('should return all matches without filters', async () => {
+    await service.findAll();
+
+    expect(prismaMock.match.findMany).toHaveBeenCalledWith({
+      where: {},
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        season: {
+          include: {
+            competition: true,
+          },
+        },
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
+  });
+
+  it('should filter matches by season', async () => {
+    await service.findAll({
+      seasonId: 1,
+    });
+
+    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          seasonId: 1,
+        },
+      }),
+    );
+  });
+
+  it('should filter matches by status', async () => {
+    await service.findAll({
+      status: MatchStatus.LIVE,
+    });
+
+    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: MatchStatus.LIVE,
+        },
+      }),
+    );
+  });
+
+  it('should filter matches where the team is home or away', async () => {
+    await service.findAll({
+      teamId: 1,
+    });
+
+    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            {
+              homeTeamId: 1,
+            },
+            {
+              awayTeamId: 1,
+            },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('should combine multiple filters', async () => {
+    await service.findAll({
+      seasonId: 1,
+      teamId: 2,
+      status: MatchStatus.FINISHED,
+    });
+
+    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          seasonId: 1,
+          status: MatchStatus.FINISHED,
+          OR: [
+            {
+              homeTeamId: 2,
+            },
+            {
+              awayTeamId: 2,
+            },
+          ],
+        },
+      }),
+    );
+  });
+});
 });
