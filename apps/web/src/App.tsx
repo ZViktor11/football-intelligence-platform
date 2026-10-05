@@ -129,6 +129,21 @@ type TeamDetail = {
   players: TeamPlayer[]
 }
 
+type TeamListItem = {
+  id: number
+  name: string
+  city: string | null
+  seasonId: number
+  season: {
+    id: number
+    name: string
+    competition: {
+      id: number
+      name: string
+    }
+  }
+}
+
 function Header() {
   return (
     <header className="header">
@@ -140,7 +155,7 @@ function Header() {
       <nav className="navigation">
         <Link to="/">Matches</Link>
         <Link to="/competitions">Competitions</Link>
-        <a href="#teams">Teams</a>
+        <Link to="/teams">Teams</Link>
         <a href="#players">Players</a>
       </nav>
     </header>
@@ -1034,6 +1049,118 @@ function CompetitionsPage() {
   )
 }
 
+function TeamsPage() {
+  const [teams, setTeams] = useState<TeamListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadTeams() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await fetch(
+          'http://localhost:3000/teams',
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            `API request failed: ${response.status}`,
+          )
+        }
+
+        const data: TeamListItem[] = await response.json()
+setTeams(data)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load teams',
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadTeams()
+  }, [])
+
+  return (
+    <main className="main">
+      <section className="hero">
+        <p className="eyebrow">Teams</p>
+
+        <h1>Football teams</h1>
+
+        <p className="hero-description">
+          Browse teams, squads and match history.
+        </p>
+      </section>
+
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Directory</p>
+            <h2>Teams</h2>
+          </div>
+
+          {!loading && !error && (
+            <span className="status-badge">
+              {teams.length} teams
+            </span>
+          )}
+        </div>
+
+        {loading && (
+          <div className="empty-state">
+            <h3>Loading teams...</h3>
+          </div>
+        )}
+
+        {error && (
+          <div className="empty-state">
+            <h3>Could not load teams</h3>
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && teams.length === 0 && (
+          <div className="empty-state">
+            <h3>No teams available</h3>
+          </div>
+        )}
+
+        {!loading && !error && teams.length > 0 && (
+          <div className="team-directory">
+            {teams.map((team) => (
+              <Link
+                className="team-directory-card"
+                key={team.id}
+                to={`/teams/${team.id}`}
+              >
+                <div>
+                  <p className="eyebrow">
+                    {team.season.competition.name}
+                  </p>
+
+                  <h3>{team.name}</h3>
+
+                  <p>
+                    {team.city ?? 'Unknown city'}
+                  </p>
+                </div>
+
+                <span>{team.season.name}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  )
+}
+
 function TeamDetailPage() {
   const { id } = useParams()
 
@@ -1215,19 +1342,24 @@ function App() {
         />
 
         <Route
-          path="/competitions"
-          element={<CompetitionsPage />}
-        />
+  path="/competitions"
+  element={<CompetitionsPage />}
+/>
 
-        <Route
-          path="/teams/:id"
-          element={<TeamDetailPage />}
-        />
+<Route
+  path="/teams"
+  element={<TeamsPage />}
+/>
 
-        <Route
-          path="/matches/:id"
-          element={<MatchDetailPage />}
-        />
+<Route
+  path="/teams/:id"
+  element={<TeamDetailPage />}
+/>
+
+<Route
+  path="/matches/:id"
+  element={<MatchDetailPage />}
+/>
 
         <Route
           path="/admin/login"
@@ -1244,6 +1376,7 @@ function App() {
           element={<AdminMatchPage />}
         />
       </Routes>
+      
     </div>
   )
 }
