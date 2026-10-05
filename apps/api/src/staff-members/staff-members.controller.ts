@@ -19,22 +19,13 @@ import { Roles } from '../auth/roles.decorator';
 
 @Controller('staff-members')
 export class StaffMembersController {
-  constructor(
-    private readonly staffMembersService: StaffMembersService,
-  ) {}
+  constructor(private readonly staffMembersService: StaffMembersService) {}
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-  )
-  create(
-    @Body() createStaffMemberDto: CreateStaffMemberDto,
-  ) {
-    return this.staffMembersService.create(
-      createStaffMemberDto,
-    );
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN)
+  create(@Body() createStaffMemberDto: CreateStaffMemberDto) {
+    return this.staffMembersService.create(createStaffMemberDto);
   }
 
   @Get()
@@ -43,9 +34,7 @@ export class StaffMembersController {
   }
 
   @Get(':id')
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.staffMembersService.findOne(id);
   }
 }

@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
@@ -56,20 +53,17 @@ export class StaffMembersService {
   }
 
   async findOne(id: number) {
-    const staffMember =
-      await this.prisma.staffMember.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          team: true,
-        },
-      });
+    const staffMember = await this.prisma.staffMember.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        team: true,
+      },
+    });
 
     if (!staffMember) {
-      throw new NotFoundException(
-        `Staff member with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Staff member with ID ${id} not found`);
     }
 
     return staffMember;

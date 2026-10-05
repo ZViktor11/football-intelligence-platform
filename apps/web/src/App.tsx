@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
 import AdminMatchPage from './AdminMatchPage'
+import AdminCreateMatchPage from './AdminCreateMatchPage'
 import './App.css'
 
 type Team = {
@@ -19,6 +20,30 @@ type Season = {
   id: number
   name: string
   competition: Competition
+}
+
+type CompetitionWithSeasons = {
+  id: number
+  name: string
+  description: string | null
+  seasons: {
+    id: number
+    name: string
+  }[]
+}
+
+type Standing = {
+  position: number
+  teamId: number
+  teamName: string
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
+  points: number
 }
 
 type Match = {
@@ -78,6 +103,32 @@ type MatchSquadPlayer = {
   }
 }
 
+type TeamPlayer = {
+  id: number
+  firstName: string
+  lastName: string
+  birthDate: string | null
+  position: string | null
+  isActive: boolean
+  teamId: number | null
+}
+
+type TeamDetail = {
+  id: number
+  name: string
+  city: string | null
+  seasonId: number
+  season: {
+    id: number
+    name: string
+    competition: {
+      id: number
+      name: string
+    }
+  }
+  players: TeamPlayer[]
+}
+
 function Header() {
   return (
     <header className="header">
@@ -88,7 +139,7 @@ function Header() {
 
       <nav className="navigation">
         <Link to="/">Matches</Link>
-        <a href="#competitions">Competitions</a>
+        <Link to="/competitions">Competitions</Link>
         <a href="#teams">Teams</a>
         <a href="#players">Players</a>
       </nav>
@@ -96,10 +147,91 @@ function Header() {
   )
 }
 
+function MatchCards({ matches }: { matches: Match[] }) {
+  return (
+    <div className="match-list">
+      {matches.map((match) => (
+        <Link
+          className="match-card-link"
+          key={match.id}
+          to={`/matches/${match.id}`}
+        >
+          <article className="match-card">
+            <div className="match-meta">
+              <div>
+                <strong>{match.season.competition.name}</strong>
+                <span>{match.season.name}</span>
+              </div>
+
+              <span
+                className={`match-status match-status-${match.status.toLowerCase()}`}
+              >
+                {match.status.replace('_', ' ')}
+              </span>
+            </div>
+
+            <div className="match-content">
+              <div className="team team-home">
+                <strong>{match.homeTeam.name}</strong>
+
+                {match.homeTeam.city && (
+                  <span>{match.homeTeam.city}</span>
+                )}
+              </div>
+
+              <div className="score">
+                <strong>
+                  {match.homeScore} : {match.awayScore}
+                </strong>
+
+                <span>
+                  {new Date(match.date).toLocaleDateString()}
+                </span>
+              </div>
+
+              <div className="team team-away">
+                <strong>{match.awayTeam.name}</strong>
+
+                {match.awayTeam.city && (
+                  <span>{match.awayTeam.city}</span>
+                )}
+              </div>
+            </div>
+          </article>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 function MatchListPage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const liveMatches = matches.filter(
+  (match) =>
+    match.status === 'LIVE' ||
+    match.status === 'HALF_TIME',
+)
+
+const upcomingMatches = matches
+  .filter(
+    (match) =>
+      match.status === 'SCHEDULED' ||
+      match.status === 'PRE_MATCH',
+  )
+  .sort(
+    (a, b) =>
+      new Date(a.date).getTime() - new Date(b.date).getTime(),
+  )
+
+const finishedMatches = matches
+  .filter((match) => match.status === 'FINISHED')
+  .sort(
+    (a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime(),
+  )
 
   useEffect(() => {
     async function loadMatches() {
@@ -138,93 +270,81 @@ function MatchListPage() {
       </section>
 
       <section className="matches-section" id="matches">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Matches</p>
-            <h2>Latest matches</h2>
+  <div className="section-heading">
+    <div>
+      <p className="eyebrow">Matches</p>
+      <h2>Match centre</h2>
+    </div>
+
+    {!loading && !error && (
+      <span className="status-badge">
+        {matches.length} matches loaded
+      </span>
+    )}
+  </div>
+
+  {loading && (
+    <div className="empty-state">
+      <h3>Loading matches...</h3>
+    </div>
+  )}
+
+  {error && (
+    <div className="empty-state">
+      <h3>Could not load matches</h3>
+      <p>{error}</p>
+    </div>
+  )}
+
+  {!loading && !error && matches.length === 0 && (
+    <div className="empty-state">
+      <h3>No matches available</h3>
+    </div>
+  )}
+
+  {!loading && !error && matches.length > 0 && (
+    <>
+      {liveMatches.length > 0 && (
+        <div>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Now</p>
+              <h2>Live matches</h2>
+            </div>
           </div>
 
-          {!loading && !error && (
-            <span className="status-badge">
-              {matches.length} matches loaded
-            </span>
-          )}
+          <MatchCards matches={liveMatches} />
         </div>
+      )}
 
-        {loading && (
-          <div className="empty-state">
-            <h3>Loading matches...</h3>
+      {upcomingMatches.length > 0 && (
+        <div>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Coming up</p>
+              <h2>Upcoming matches</h2>
+            </div>
           </div>
-        )}
 
-        {error && (
-          <div className="empty-state">
-            <h3>Could not load matches</h3>
-            <p>{error}</p>
+          <MatchCards matches={upcomingMatches} />
+        </div>
+      )}
+
+      {finishedMatches.length > 0 && (
+        <div>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Completed</p>
+              <h2>Results</h2>
+            </div>
           </div>
-        )}
 
-        {!loading && !error && matches.length === 0 && (
-          <div className="empty-state">
-            <h3>No matches available</h3>
-          </div>
-        )}
-
-        {!loading && !error && matches.length > 0 && (
-          <div className="match-list">
-            {matches.map((match) => (
-              <Link
-                className="match-card-link"
-                key={match.id}
-                to={`/matches/${match.id}`}
-              >
-                <article className="match-card">
-                  <div className="match-meta">
-                    <div>
-                      <strong>{match.season.competition.name}</strong>
-                      <span>{match.season.name}</span>
-                    </div>
-
-                    <span
-                      className={`match-status match-status-${match.status.toLowerCase()}`}
-                    >
-                      {match.status.replace('_', ' ')}
-                    </span>
-                  </div>
-
-                  <div className="match-content">
-                    <div className="team team-home">
-                      <strong>{match.homeTeam.name}</strong>
-
-                      {match.homeTeam.city && (
-                        <span>{match.homeTeam.city}</span>
-                      )}
-                    </div>
-
-                    <div className="score">
-                      <strong>
-                        {match.homeScore} : {match.awayScore}
-                      </strong>
-
-                      <span>
-                        {new Date(match.date).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <div className="team team-away">
-                      <strong>{match.awayTeam.name}</strong>
-
-                      {match.awayTeam.city && (
-                        <span>{match.awayTeam.city}</span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+          <MatchCards matches={finishedMatches} />
+        </div>
+      )}
+    </>
+  )}
+</section>
     </main>
   )
 }
@@ -691,20 +811,439 @@ function MatchDetailPage() {
   )
 }
 
+function CompetitionsPage() {
+  const [competitions, setCompetitions] = useState<
+    CompetitionWithSeasons[]
+  >([])
+  const [selectedSeasonId, setSelectedSeasonId] =
+    useState<number | null>(null)
+  const [standings, setStandings] = useState<Standing[]>([])
+  const [loading, setLoading] = useState(true)
+  const [standingsLoading, setStandingsLoading] =
+    useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadCompetitions() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await fetch(
+          'http://localhost:3000/competitions',
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            `API request failed: ${response.status}`,
+          )
+        }
+
+        const data: CompetitionWithSeasons[] =
+          await response.json()
+
+        setCompetitions(data)
+
+        const firstSeason = data
+          .flatMap((competition) => competition.seasons)
+          .at(0)
+
+        if (firstSeason) {
+          setSelectedSeasonId(firstSeason.id)
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load competitions',
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadCompetitions()
+  }, [])
+
+  useEffect(() => {
+  if (selectedSeasonId === null) {
+    return
+  }
+
+  async function loadStandings() {
+      try {
+        setStandingsLoading(true)
+        setError(null)
+
+        const response = await fetch(
+          `http://localhost:3000/seasons/${selectedSeasonId}/standings`,
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            `Standings request failed: ${response.status}`,
+          )
+        }
+
+        const data: Standing[] = await response.json()
+        setStandings(data)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load standings',
+        )
+      } finally {
+        setStandingsLoading(false)
+      }
+    }
+
+    void loadStandings()
+  }, [selectedSeasonId])
+
+  return (
+    <main className="main">
+      <section className="hero">
+        <p className="eyebrow">Competitions</p>
+        <h1>Competitions & standings</h1>
+
+        <p className="hero-description">
+          Follow league tables, seasons and competition
+          results.
+        </p>
+      </section>
+
+      {loading && (
+        <section className="matches-section">
+          <div className="empty-state">
+            <h3>Loading competitions...</h3>
+          </div>
+        </section>
+      )}
+
+      {error && (
+        <section className="matches-section">
+          <div className="empty-state">
+            <h3>Could not load competition data</h3>
+            <p>{error}</p>
+          </div>
+        </section>
+      )}
+
+      {!loading &&
+        competitions.map((competition) => (
+          <section
+            className="matches-section"
+            key={competition.id}
+          >
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Competition</p>
+                <h2>{competition.name}</h2>
+
+                {competition.description && (
+                  <p>{competition.description}</p>
+                )}
+              </div>
+            </div>
+
+            {competition.seasons.length > 0 && (
+              <div>
+                <label htmlFor={`season-${competition.id}`}>
+                  Season
+                </label>
+
+                <select
+                  id={`season-${competition.id}`}
+                  value={selectedSeasonId ?? ''}
+                  onChange={(event) =>
+                    setSelectedSeasonId(
+                      Number(event.target.value),
+                    )
+                  }
+                >
+                  {competition.seasons.map((season) => (
+                    <option
+                      key={season.id}
+                      value={season.id}
+                    >
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Season table</p>
+                <h2>Standings</h2>
+              </div>
+            </div>
+
+            {standingsLoading ? (
+              <div className="empty-state">
+                <h3>Loading standings...</h3>
+              </div>
+            ) : (
+              <div className="standings-wrapper">
+                <table className="standings-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Team</th>
+                      <th>P</th>
+                      <th>W</th>
+                      <th>D</th>
+                      <th>L</th>
+                      <th>GF</th>
+                      <th>GA</th>
+                      <th>GD</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {standings.map((entry) => (
+                      <tr key={entry.teamId}>
+                        <td>{entry.position}</td>
+                        <td>
+  <Link to={`/teams/${entry.teamId}`}>
+    <strong>{entry.teamName}</strong>
+  </Link>
+</td>
+                        <td>{entry.played}</td>
+                        <td>{entry.won}</td>
+                        <td>{entry.drawn}</td>
+                        <td>{entry.lost}</td>
+                        <td>{entry.goalsFor}</td>
+                        <td>{entry.goalsAgainst}</td>
+                        <td>{entry.goalDifference}</td>
+                        <td>
+                          <strong>{entry.points}</strong>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ))}
+    </main>
+  )
+}
+
+function TeamDetailPage() {
+  const { id } = useParams()
+
+  const [team, setTeam] = useState<TeamDetail | null>(null)
+  const [matches, setMatches] = useState<Match[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadTeam() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const [teamResponse, matchesResponse] =
+          await Promise.all([
+            fetch(`http://localhost:3000/teams/${id}`),
+            fetch(`http://localhost:3000/matches?teamId=${id}`),
+          ])
+
+        if (!teamResponse.ok) {
+          throw new Error(
+            `Team request failed: ${teamResponse.status}`,
+          )
+        }
+
+        if (!matchesResponse.ok) {
+          throw new Error(
+            `Matches request failed: ${matchesResponse.status}`,
+          )
+        }
+
+        const teamData: TeamDetail =
+          await teamResponse.json()
+
+        const matchesData: Match[] =
+          await matchesResponse.json()
+
+        setTeam(teamData)
+        setMatches(matchesData)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load team',
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadTeam()
+  }, [id])
+
+  if (loading) {
+    return (
+      <main className="main">
+        <div className="empty-state">
+          <h3>Loading team...</h3>
+        </div>
+      </main>
+    )
+  }
+
+  if (error || !team) {
+    return (
+      <main className="main">
+        <div className="empty-state">
+          <h3>Could not load team</h3>
+          <p>{error}</p>
+        </div>
+      </main>
+    )
+  }
+
+  const upcomingMatches = matches
+    .filter(
+      (match) =>
+        match.status === 'SCHEDULED' ||
+        match.status === 'PRE_MATCH',
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.date).getTime() -
+        new Date(b.date).getTime(),
+    )
+
+  const recentMatches = matches
+    .filter((match) => match.status === 'FINISHED')
+    .sort(
+      (a, b) =>
+        new Date(b.date).getTime() -
+        new Date(a.date).getTime(),
+    )
+
+  return (
+    <main className="main">
+      <section className="hero">
+        <p className="eyebrow">
+          {team.season.competition.name}
+        </p>
+
+        <h1>{team.name}</h1>
+
+        <p className="hero-description">
+          {team.city && `${team.city} · `}
+          {team.season.name}
+        </p>
+      </section>
+
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Squad</p>
+            <h2>Players</h2>
+          </div>
+
+          <span className="status-badge">
+            {team.players.length} players
+          </span>
+        </div>
+
+        <div className="player-list">
+          {team.players.map((player) => (
+            <div
+              className="lineup-player"
+              key={player.id}
+            >
+              <strong>
+                {player.firstName} {player.lastName}
+              </strong>
+
+              <span>
+                {player.position ?? 'Unknown position'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {upcomingMatches.length > 0 && (
+        <section className="matches-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Coming up</p>
+              <h2>Upcoming matches</h2>
+            </div>
+          </div>
+
+          <MatchCards matches={upcomingMatches} />
+        </section>
+      )}
+
+      {recentMatches.length > 0 && (
+        <section className="matches-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Completed</p>
+              <h2>Recent results</h2>
+            </div>
+          </div>
+
+          <MatchCards matches={recentMatches} />
+        </section>
+      )}
+    </main>
+  )
+}
+
 function App() {
   return (
     <div className="app">
       <Header />
 
       <Routes>
-  <Route path="/" element={<MatchListPage />} />
-  <Route path="/matches/:id" element={<MatchDetailPage />} />
-  <Route path="/admin/login" element={<AdminLoginPage />} />
-  <Route
-  path="/admin/matches/:id"
-  element={<AdminMatchPage />}
-/>
-</Routes>
+        <Route
+          path="/"
+          element={<MatchListPage />}
+        />
+
+        <Route
+          path="/competitions"
+          element={<CompetitionsPage />}
+        />
+
+        <Route
+          path="/teams/:id"
+          element={<TeamDetailPage />}
+        />
+
+        <Route
+          path="/matches/:id"
+          element={<MatchDetailPage />}
+        />
+
+        <Route
+          path="/admin/login"
+          element={<AdminLoginPage />}
+        />
+
+        <Route
+          path="/admin/matches/new"
+          element={<AdminCreateMatchPage />}
+        />
+
+        <Route
+          path="/admin/matches/:id"
+          element={<AdminMatchPage />}
+        />
+      </Routes>
     </div>
   )
 }

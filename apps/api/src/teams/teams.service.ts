@@ -58,9 +58,7 @@ export class TeamsService {
     });
 
     if (!team) {
-      throw new NotFoundException(
-        `Team with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Team with ID ${id} not found`);
     }
 
     return team;

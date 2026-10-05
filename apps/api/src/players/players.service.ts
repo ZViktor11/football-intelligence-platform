@@ -21,25 +21,25 @@ export class PlayersService {
   }
 
   findAll() {
-  return this.prisma.player.findMany({
-    include: {
-      team: true,
-    },
-  });
-}
-
-async findOne(id: number) {
-  const player = await this.prisma.player.findUnique({
-    where: { id },
-    include: {
-      team: true,
-    },
-  });
-
-  if (!player) {
-    throw new NotFoundException(`Player with ID ${id} not found`);
+    return this.prisma.player.findMany({
+      include: {
+        team: true,
+      },
+    });
   }
 
-  return player;
-}
+  async findOne(id: number) {
+    const player = await this.prisma.player.findUnique({
+      where: { id },
+      include: {
+        team: true,
+      },
+    });
+
+    if (!player) {
+      throw new NotFoundException(`Player with ID ${id} not found`);
+    }
+
+    return player;
+  }
 }

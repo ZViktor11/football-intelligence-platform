@@ -34,9 +34,7 @@ describe('MatchEventsController', () => {
       })
       .compile();
 
-    controller = module.get<MatchEventsController>(
-      MatchEventsController,
-    );
+    controller = module.get<MatchEventsController>(MatchEventsController);
   });
 
   it('should be defined', () => {

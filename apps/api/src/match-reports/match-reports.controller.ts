@@ -31,21 +31,11 @@ type AuthenticatedRequest = Request & {
 
 @Controller('match-reports')
 export class MatchReportsController {
-  constructor(
-    private readonly matchReportsService: MatchReportsService,
-  ) {}
+  constructor(private readonly matchReportsService: MatchReportsService) {}
 
   @Post()
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('bodyMatchId')
   create(
     @Body()
@@ -59,41 +49,25 @@ export class MatchReportsController {
   }
 
   @Get()
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-  )
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.SYSTEM_ADMIN)
   findAll() {
     return this.matchReportsService.findAll();
   }
 
   @Get('match/:matchId')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('matchIdParam')
   findByMatch(
     @Param('matchId', ParseIntPipe)
     matchId: number,
   ) {
-    return this.matchReportsService.findByMatch(
-      matchId,
-    );
+    return this.matchReportsService.findByMatch(matchId);
   }
 
   @Patch(':id/status')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-  )
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.SYSTEM_ADMIN)
   updateStatus(
     @Param('id', ParseIntPipe) id: number,

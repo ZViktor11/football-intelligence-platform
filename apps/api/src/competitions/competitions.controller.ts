@@ -20,9 +20,7 @@ import { UpdateCompetitionDto } from './dto/update-competition.dto';
 
 @Controller('competitions')
 export class CompetitionsController {
-  constructor(
-    private readonly competitionsService: CompetitionsService,
-  ) {}
+  constructor(private readonly competitionsService: CompetitionsService) {}
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
@@ -48,9 +46,6 @@ export class CompetitionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCompetitionDto: UpdateCompetitionDto,
   ) {
-    return this.competitionsService.update(
-      id,
-      updateCompetitionDto,
-    );
+    return this.competitionsService.update(id, updateCompetitionDto);
   }
 }

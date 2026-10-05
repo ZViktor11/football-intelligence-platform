@@ -1,7 +1,4 @@
-import {
-  IsEnum,
-  IsInt,
-} from 'class-validator';
+import { IsEnum, IsInt } from 'class-validator';
 
 import { MatchSquadRole } from '../../../generated/prisma/client';
 

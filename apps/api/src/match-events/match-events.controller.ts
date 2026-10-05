@@ -32,21 +32,11 @@ type AuthenticatedRequest = Request & {
 
 @Controller('match-events')
 export class MatchEventsController {
-  constructor(
-    private readonly matchEventsService: MatchEventsService,
-  ) {}
+  constructor(private readonly matchEventsService: MatchEventsService) {}
 
   @Post()
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('bodyMatchId')
   create(
     @Body()
@@ -64,22 +54,12 @@ export class MatchEventsController {
     @Param('matchId', ParseIntPipe)
     matchId: number,
   ) {
-    return this.matchEventsService.findByMatch(
-      matchId,
-    );
+    return this.matchEventsService.findByMatch(matchId);
   }
 
   @Patch(':id')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('eventIdParam')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -95,24 +75,13 @@ export class MatchEventsController {
   }
 
   @Delete(':id')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('eventIdParam')
   remove(
     @Param('id', ParseIntPipe) id: number,
     @Req() request: AuthenticatedRequest,
   ) {
-    return this.matchEventsService.remove(
-      id,
-      request.user.sub,
-    );
+    return this.matchEventsService.remove(id, request.user.sub);
   }
 }

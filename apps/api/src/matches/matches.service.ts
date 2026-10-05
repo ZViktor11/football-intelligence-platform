@@ -31,9 +31,7 @@ export class MatchesService {
     });
 
     if (!season) {
-      throw new NotFoundException(
-        `Season with ID ${seasonId} not found`,
-      );
+      throw new NotFoundException(`Season with ID ${seasonId} not found`);
     }
 
     const teams = await this.prisma.team.findMany({
@@ -48,9 +46,7 @@ export class MatchesService {
       throw new NotFoundException('One or both teams were not found');
     }
 
-    const invalidTeam = teams.find(
-      (team) => team.seasonId !== seasonId,
-    );
+    const invalidTeam = teams.find((team) => team.seasonId !== seasonId);
 
     if (invalidTeam) {
       throw new BadRequestException(
@@ -122,10 +118,7 @@ export class MatchesService {
           include: {
             player: true,
           },
-          orderBy: [
-            { minute: 'asc' },
-            { createdAt: 'asc' },
-          ],
+          orderBy: [{ minute: 'asc' }, { createdAt: 'asc' }],
         },
       },
     });
@@ -224,10 +217,7 @@ export class MatchesService {
     secondHalfStartedAt: Date | null,
     halfDurationMinutes: number,
   ) {
-    if (
-      status === MatchStatus.SCHEDULED ||
-      status === MatchStatus.PRE_MATCH
-    ) {
+    if (status === MatchStatus.SCHEDULED || status === MatchStatus.PRE_MATCH) {
       return {
         matchMinute: null,
         clockDisplay: null,
@@ -248,16 +238,10 @@ export class MatchesService {
       };
     }
 
-    if (
-      status === MatchStatus.LIVE &&
-      secondHalfStartedAt
-    ) {
-      const elapsedMinutes = this.getElapsedMinutes(
-        secondHalfStartedAt,
-      );
+    if (status === MatchStatus.LIVE && secondHalfStartedAt) {
+      const elapsedMinutes = this.getElapsedMinutes(secondHalfStartedAt);
 
-      const matchMinute =
-        halfDurationMinutes + elapsedMinutes + 1;
+      const matchMinute = halfDurationMinutes + elapsedMinutes + 1;
 
       return {
         matchMinute,
@@ -268,22 +252,14 @@ export class MatchesService {
       };
     }
 
-    if (
-      status === MatchStatus.LIVE &&
-      actualStartedAt
-    ) {
-      const elapsedMinutes = this.getElapsedMinutes(
-        actualStartedAt,
-      );
+    if (status === MatchStatus.LIVE && actualStartedAt) {
+      const elapsedMinutes = this.getElapsedMinutes(actualStartedAt);
 
       const matchMinute = elapsedMinutes + 1;
 
       return {
         matchMinute,
-        clockDisplay: this.formatMatchMinute(
-          matchMinute,
-          halfDurationMinutes,
-        ),
+        clockDisplay: this.formatMatchMinute(matchMinute, halfDurationMinutes),
       };
     }
 
@@ -293,27 +269,19 @@ export class MatchesService {
     };
   }
 
-  private formatMatchMinute(
-    matchMinute: number,
-    regulationEndMinute: number,
-  ) {
+  private formatMatchMinute(matchMinute: number, regulationEndMinute: number) {
     if (matchMinute <= regulationEndMinute) {
       return `${matchMinute}'`;
     }
 
-    const stoppageTime =
-      matchMinute - regulationEndMinute;
+    const stoppageTime = matchMinute - regulationEndMinute;
 
     return `${regulationEndMinute}+${stoppageTime}'`;
   }
 
   private getElapsedMinutes(startedAt: Date) {
-    const elapsedMilliseconds =
-      Date.now() - startedAt.getTime();
+    const elapsedMilliseconds = Date.now() - startedAt.getTime();
 
-    return Math.max(
-      0,
-      Math.floor(elapsedMilliseconds / 60000),
-    );
+    return Math.max(0, Math.floor(elapsedMilliseconds / 60000));
   }
 }

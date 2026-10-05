@@ -9,10 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  MatchStatus,
-  Role,
-} from '../../generated/prisma/client';
+import { MatchStatus, Role } from '../../generated/prisma/client';
 
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
@@ -26,9 +23,7 @@ import { MatchAccess } from '../auth/match-access.decorator';
 
 @Controller('matches')
 export class MatchesController {
-  constructor(
-    private readonly matchesService: MatchesService,
-  ) {}
+  constructor(private readonly matchesService: MatchesService) {}
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
@@ -44,41 +39,26 @@ export class MatchesController {
     @Query('status') status?: MatchStatus,
   ) {
     return this.matchesService.findAll({
-      seasonId: seasonId
-        ? Number(seasonId)
-        : undefined,
+      seasonId: seasonId ? Number(seasonId) : undefined,
       teamId: teamId ? Number(teamId) : undefined,
       status,
     });
   }
 
   @Get(':id')
-  findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.matchesService.findOne(id);
   }
 
   @Patch(':id/status')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('matchIdParam')
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body()
     updateMatchStatusDto: UpdateMatchStatusDto,
   ) {
-    return this.matchesService.updateStatus(
-      id,
-      updateMatchStatusDto.status,
-    );
+    return this.matchesService.updateStatus(id, updateMatchStatusDto.status);
   }
 }

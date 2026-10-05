@@ -59,25 +59,16 @@ type Player = {
 
 
 type Match = {
-
   id: number
-
   date: string
-
   status: MatchStatus
-
   homeScore: number
-
   awayScore: number
-
   homeTeam: Team
-
   awayTeam: Team
-
+  secondHalfStartedAt: string | null
   clockDisplay?: string | null
-
   matchMinute?: number | null
-
 }
 
 
@@ -533,27 +524,17 @@ function AdminMatchPage() {
   const selectedCardTeamId =
     cardTeamId === '' ? null : Number(cardTeamId)
 
-  const cardEffectiveMinute =
-    cardMinute === ''
-      ? match?.matchMinute ?? null
-      : Number(cardMinute)
-
-  const cardOnPitchPlayerIds = useMemo(
-    () => getOnPitchPlayerIdsAtMinute(cardEffectiveMinute),
-    [getOnPitchPlayerIdsAtMinute, cardEffectiveMinute],
-  )
+  
 
   const cardPlayerOptions = useMemo(() => {
-    if (selectedCardTeamId === null) {
-      return []
-    }
+  if (selectedCardTeamId === null) {
+    return []
+  }
 
-    return squad.filter(
-      (entry) =>
-        entry.teamId === selectedCardTeamId &&
-        cardOnPitchPlayerIds.has(entry.playerId),
-    )
-  }, [squad, selectedCardTeamId, cardOnPitchPlayerIds])
+  return squad.filter(
+    (entry) => entry.teamId === selectedCardTeamId,
+  )
+}, [squad, selectedCardTeamId])
 
   const selectedSubstitutionTeamId =
     substitutionTeamId === ''
@@ -1920,52 +1901,31 @@ const awayPlayers = players.filter(
 
 
       case 'LIVE':
+  return (
+    <div>
+      {!match.secondHalfStartedAt && (
+        <button
+          type="button"
+          disabled={changingStatus}
+          onClick={() => void changeStatus('HALF_TIME')}
+        >
+          {changingStatus
+            ? 'Updating...'
+            : 'Half time'}
+        </button>
+      )}
 
-        return (
-
-          <div>
-
-            <button
-
-              type="button"
-
-              disabled={changingStatus}
-
-              onClick={() => void changeStatus('HALF_TIME')}
-
-            >
-
-              {changingStatus
-
-                ? 'Updating...'
-
-                : 'Half time'}
-
-            </button>
-
-
-
-            <button
-
-              type="button"
-
-              disabled={changingStatus}
-
-              onClick={() => void changeStatus('FINISHED')}
-
-            >
-
-              {changingStatus
-
-                ? 'Updating...'
-
-                : 'Finish match'}
-
-            </button>
-
-          </div>
-
-        )
+      <button
+        type="button"
+        disabled={changingStatus}
+        onClick={() => void changeStatus('FINISHED')}
+      >
+        {changingStatus
+          ? 'Updating...'
+          : 'Finish match'}
+      </button>
+    </div>
+  )
 
 
 

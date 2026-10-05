@@ -24,29 +24,17 @@ import { MatchAccess } from '../auth/match-access.decorator';
 
 @Controller('match-squads')
 export class MatchSquadsController {
-  constructor(
-    private readonly matchSquadsService: MatchSquadsService,
-  ) {}
+  constructor(private readonly matchSquadsService: MatchSquadsService) {}
 
   @Post()
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('bodyMatchId')
   create(
     @Body()
     createMatchSquadPlayerDto: CreateMatchSquadPlayerDto,
   ) {
-    return this.matchSquadsService.create(
-      createMatchSquadPlayerDto,
-    );
+    return this.matchSquadsService.create(createMatchSquadPlayerDto);
   }
 
   @Get('match/:matchId')
@@ -54,22 +42,12 @@ export class MatchSquadsController {
     @Param('matchId', ParseIntPipe)
     matchId: number,
   ) {
-    return this.matchSquadsService.findByMatch(
-      matchId,
-    );
+    return this.matchSquadsService.findByMatch(matchId);
   }
 
   @Patch(':id')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('squadEntryId')
   update(
     @Param('id', ParseIntPipe)
@@ -77,23 +55,12 @@ export class MatchSquadsController {
     @Body()
     updateMatchSquadPlayerDto: UpdateMatchSquadPlayerDto,
   ) {
-    return this.matchSquadsService.update(
-      id,
-      updateMatchSquadPlayerDto,
-    );
+    return this.matchSquadsService.update(id, updateMatchSquadPlayerDto);
   }
 
   @Delete(':id')
-  @UseGuards(
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  )
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-    Role.MATCH_ADMIN,
-  )
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
   @MatchAccess('squadEntryId')
   remove(
     @Param('id', ParseIntPipe)

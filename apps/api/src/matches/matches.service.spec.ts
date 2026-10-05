@@ -7,22 +7,21 @@ describe('MatchesService', () => {
   let service: MatchesService;
 
   const prismaMock = {
-  match: {
-  findUnique: jest.fn(),
-  findMany: jest.fn(),
-  update: jest.fn(),
-  create: jest.fn(),
-},
-  season: {
-    findUnique: jest.fn(),
-  },
-  team: {
-    findMany: jest.fn(),
-  },
-};
+    match: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+    },
+    season: {
+      findUnique: jest.fn(),
+    },
+    team: {
+      findMany: jest.fn(),
+    },
+  };
 
   beforeEach(async () => {
-
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,9 +68,7 @@ describe('MatchesService', () => {
       const startedAt = new Date('2026-09-21T16:00:00.000Z');
 
       jest.useFakeTimers();
-      jest.setSystemTime(
-        new Date('2026-09-21T16:45:00.000Z'),
-      );
+      jest.setSystemTime(new Date('2026-09-21T16:45:00.000Z'));
 
       const result = (service as any).calculateMatchClock(
         MatchStatus.LIVE,
@@ -101,9 +98,7 @@ describe('MatchesService', () => {
     });
 
     it("should display 46' at second-half kickoff", () => {
-      const secondHalfStartedAt = new Date(
-        '2026-09-21T17:00:00.000Z',
-      );
+      const secondHalfStartedAt = new Date('2026-09-21T17:00:00.000Z');
 
       jest.useFakeTimers();
       jest.setSystemTime(secondHalfStartedAt);
@@ -122,14 +117,10 @@ describe('MatchesService', () => {
     });
 
     it("should display 90+1' after 45 full minutes of the second half", () => {
-      const secondHalfStartedAt = new Date(
-        '2026-09-21T17:00:00.000Z',
-      );
+      const secondHalfStartedAt = new Date('2026-09-21T17:00:00.000Z');
 
       jest.useFakeTimers();
-      jest.setSystemTime(
-        new Date('2026-09-21T17:45:00.000Z'),
-      );
+      jest.setSystemTime(new Date('2026-09-21T17:45:00.000Z'));
 
       const result = (service as any).calculateMatchClock(
         MatchStatus.LIVE,
@@ -159,9 +150,7 @@ describe('MatchesService', () => {
     });
 
     it('should respect a custom half duration', () => {
-      const secondHalfStartedAt = new Date(
-        '2026-09-21T17:00:00.000Z',
-      );
+      const secondHalfStartedAt = new Date('2026-09-21T17:00:00.000Z');
 
       jest.useFakeTimers();
       jest.setSystemTime(secondHalfStartedAt);
@@ -180,193 +169,189 @@ describe('MatchesService', () => {
     });
   });
   describe('match status lifecycle', () => {
-  const matchBase = {
-    id: 1,
-    actualStartedAt: null,
-    firstHalfEndedAt: null,
-    secondHalfStartedAt: null,
-    actualEndedAt: null,
-  };
+    const matchBase = {
+      id: 1,
+      actualStartedAt: null,
+      firstHalfEndedAt: null,
+      secondHalfStartedAt: null,
+      actualEndedAt: null,
+    };
 
-  it('should allow SCHEDULED -> PRE_MATCH', async () => {
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.SCHEDULED,
-    });
+    it('should allow SCHEDULED -> PRE_MATCH', async () => {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.SCHEDULED,
+      });
 
-    prismaMock.match.update.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.PRE_MATCH,
-    });
-
-    await service.updateStatus(1, MatchStatus.PRE_MATCH);
-
-    expect(prismaMock.match.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
+      prismaMock.match.update.mockResolvedValue({
+        ...matchBase,
         status: MatchStatus.PRE_MATCH,
-      },
-    });
-  });
+      });
 
-  it('should reject SCHEDULED -> LIVE', async () => {
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.SCHEDULED,
-    });
+      await service.updateStatus(1, MatchStatus.PRE_MATCH);
 
-    await expect(
-      service.updateStatus(1, MatchStatus.LIVE),
-    ).rejects.toThrow(
-      'Invalid match status transition: SCHEDULED -> LIVE',
-    );
-
-    expect(prismaMock.match.update).not.toHaveBeenCalled();
-  });
-
-  it('should allow PRE_MATCH -> LIVE and set actualStartedAt', async () => {
-    const now = new Date('2026-10-02T08:00:00.000Z');
-
-    jest.useFakeTimers();
-    jest.setSystemTime(now);
-
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.PRE_MATCH,
+      expect(prismaMock.match.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          status: MatchStatus.PRE_MATCH,
+        },
+      });
     });
 
-    prismaMock.match.update.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.LIVE,
-      actualStartedAt: now,
+    it('should reject SCHEDULED -> LIVE', async () => {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.SCHEDULED,
+      });
+
+      await expect(service.updateStatus(1, MatchStatus.LIVE)).rejects.toThrow(
+        'Invalid match status transition: SCHEDULED -> LIVE',
+      );
+
+      expect(prismaMock.match.update).not.toHaveBeenCalled();
     });
 
-    await service.updateStatus(1, MatchStatus.LIVE);
+    it('should allow PRE_MATCH -> LIVE and set actualStartedAt', async () => {
+      const now = new Date('2026-10-02T08:00:00.000Z');
 
-    expect(prismaMock.match.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
+
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.PRE_MATCH,
+      });
+
+      prismaMock.match.update.mockResolvedValue({
+        ...matchBase,
         status: MatchStatus.LIVE,
         actualStartedAt: now,
-      },
-    });
-  });
+      });
 
-  it('should allow LIVE -> HALF_TIME and set firstHalfEndedAt', async () => {
-    const now = new Date('2026-10-02T08:45:00.000Z');
+      await service.updateStatus(1, MatchStatus.LIVE);
 
-    jest.useFakeTimers();
-    jest.setSystemTime(now);
-
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.LIVE,
-      actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
+      expect(prismaMock.match.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          status: MatchStatus.LIVE,
+          actualStartedAt: now,
+        },
+      });
     });
 
-    prismaMock.match.update.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.HALF_TIME,
-      firstHalfEndedAt: now,
-    });
+    it('should allow LIVE -> HALF_TIME and set firstHalfEndedAt', async () => {
+      const now = new Date('2026-10-02T08:45:00.000Z');
 
-    await service.updateStatus(1, MatchStatus.HALF_TIME);
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
 
-    expect(prismaMock.match.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.LIVE,
+        actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
+      });
+
+      prismaMock.match.update.mockResolvedValue({
+        ...matchBase,
         status: MatchStatus.HALF_TIME,
         firstHalfEndedAt: now,
-      },
-    });
-  });
+      });
 
-  it('should allow HALF_TIME -> LIVE and set secondHalfStartedAt', async () => {
-    const now = new Date('2026-10-02T09:00:00.000Z');
+      await service.updateStatus(1, MatchStatus.HALF_TIME);
 
-    jest.useFakeTimers();
-    jest.setSystemTime(now);
-
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.HALF_TIME,
-      actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
-      firstHalfEndedAt: new Date('2026-10-02T08:45:00.000Z'),
+      expect(prismaMock.match.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          status: MatchStatus.HALF_TIME,
+          firstHalfEndedAt: now,
+        },
+      });
     });
 
-    prismaMock.match.update.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.LIVE,
-      secondHalfStartedAt: now,
-    });
+    it('should allow HALF_TIME -> LIVE and set secondHalfStartedAt', async () => {
+      const now = new Date('2026-10-02T09:00:00.000Z');
 
-    await service.updateStatus(1, MatchStatus.LIVE);
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
 
-    expect(prismaMock.match.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.HALF_TIME,
+        actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
+        firstHalfEndedAt: new Date('2026-10-02T08:45:00.000Z'),
+      });
+
+      prismaMock.match.update.mockResolvedValue({
+        ...matchBase,
         status: MatchStatus.LIVE,
         secondHalfStartedAt: now,
-      },
-    });
-  });
+      });
 
-  it('should allow LIVE -> FINISHED and set actualEndedAt', async () => {
-    const now = new Date('2026-10-02T09:45:00.000Z');
+      await service.updateStatus(1, MatchStatus.LIVE);
 
-    jest.useFakeTimers();
-    jest.setSystemTime(now);
-
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.LIVE,
-      actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
-      firstHalfEndedAt: new Date('2026-10-02T08:45:00.000Z'),
-      secondHalfStartedAt: new Date('2026-10-02T09:00:00.000Z'),
+      expect(prismaMock.match.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          status: MatchStatus.LIVE,
+          secondHalfStartedAt: now,
+        },
+      });
     });
 
-    prismaMock.match.update.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.FINISHED,
-      actualEndedAt: now,
-    });
+    it('should allow LIVE -> FINISHED and set actualEndedAt', async () => {
+      const now = new Date('2026-10-02T09:45:00.000Z');
 
-    await service.updateStatus(1, MatchStatus.FINISHED);
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
 
-    expect(prismaMock.match.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.LIVE,
+        actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
+        firstHalfEndedAt: new Date('2026-10-02T08:45:00.000Z'),
+        secondHalfStartedAt: new Date('2026-10-02T09:00:00.000Z'),
+      });
+
+      prismaMock.match.update.mockResolvedValue({
+        ...matchBase,
         status: MatchStatus.FINISHED,
         actualEndedAt: now,
-      },
+      });
+
+      await service.updateStatus(1, MatchStatus.FINISHED);
+
+      expect(prismaMock.match.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          status: MatchStatus.FINISHED,
+          actualEndedAt: now,
+        },
+      });
+    });
+
+    it('should reject FINISHED -> LIVE', async () => {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.FINISHED,
+      });
+
+      await expect(service.updateStatus(1, MatchStatus.LIVE)).rejects.toThrow(
+        'Invalid match status transition: FINISHED -> LIVE',
+      );
+
+      expect(prismaMock.match.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject a status update when the match does not exist', async () => {
+      prismaMock.match.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateStatus(999, MatchStatus.PRE_MATCH),
+      ).rejects.toThrow('Match not found');
+
+      expect(prismaMock.match.update).not.toHaveBeenCalled();
     });
   });
-
-  it('should reject FINISHED -> LIVE', async () => {
-    prismaMock.match.findUnique.mockResolvedValue({
-      ...matchBase,
-      status: MatchStatus.FINISHED,
-    });
-
-    await expect(
-      service.updateStatus(1, MatchStatus.LIVE),
-    ).rejects.toThrow(
-      'Invalid match status transition: FINISHED -> LIVE',
-    );
-
-    expect(prismaMock.match.update).not.toHaveBeenCalled();
-  });
-
-  it('should reject a status update when the match does not exist', async () => {
-    prismaMock.match.findUnique.mockResolvedValue(null);
-
-    await expect(
-      service.updateStatus(999, MatchStatus.PRE_MATCH),
-    ).rejects.toThrow('Match not found');
-
-    expect(prismaMock.match.update).not.toHaveBeenCalled();
-  });
-});
   describe('match creation', () => {
     const createMatchDto = {
       date: '2026-11-01T16:00:00.000Z',
@@ -419,31 +404,21 @@ describe('MatchesService', () => {
           ...createMatchDto,
           awayTeamId: 1,
         }),
-      ).rejects.toThrow(
-        'Home team and away team must be different',
-      );
+      ).rejects.toThrow('Home team and away team must be different');
 
-      expect(
-        prismaMock.season.findUnique,
-      ).not.toHaveBeenCalled();
+      expect(prismaMock.season.findUnique).not.toHaveBeenCalled();
 
-      expect(
-        prismaMock.match.create,
-      ).not.toHaveBeenCalled();
+      expect(prismaMock.match.create).not.toHaveBeenCalled();
     });
 
     it('should reject a match when the season does not exist', async () => {
       prismaMock.season.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.create(createMatchDto),
-      ).rejects.toThrow(
+      await expect(service.create(createMatchDto)).rejects.toThrow(
         'Season with ID 1 not found',
       );
 
-      expect(
-        prismaMock.match.create,
-      ).not.toHaveBeenCalled();
+      expect(prismaMock.match.create).not.toHaveBeenCalled();
     });
 
     it('should reject a match when one or both teams do not exist', async () => {
@@ -460,15 +435,11 @@ describe('MatchesService', () => {
         },
       ]);
 
-      await expect(
-        service.create(createMatchDto),
-      ).rejects.toThrow(
+      await expect(service.create(createMatchDto)).rejects.toThrow(
         'One or both teams were not found',
       );
 
-      expect(
-        prismaMock.match.create,
-      ).not.toHaveBeenCalled();
+      expect(prismaMock.match.create).not.toHaveBeenCalled();
     });
 
     it('should reject a match when a team belongs to another season', async () => {
@@ -490,189 +461,178 @@ describe('MatchesService', () => {
         },
       ]);
 
-      await expect(
-        service.create(createMatchDto),
-      ).rejects.toThrow(
+      await expect(service.create(createMatchDto)).rejects.toThrow(
         'Both teams must belong to the selected season',
       );
 
-      expect(
-        prismaMock.match.create,
-      ).not.toHaveBeenCalled();
+      expect(prismaMock.match.create).not.toHaveBeenCalled();
     });
   });
   describe('findOne', () => {
-  it('should return a match with its calculated clock', async () => {
-    const startedAt = new Date('2026-10-02T10:00:00.000Z');
+    it('should return a match with its calculated clock', async () => {
+      const startedAt = new Date('2026-10-02T10:00:00.000Z');
 
-    jest.useFakeTimers();
-    jest.setSystemTime(
-      new Date('2026-10-02T10:10:00.000Z'),
-    );
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-10-02T10:10:00.000Z'));
 
-    prismaMock.match.findUnique.mockResolvedValue({
-      id: 1,
-      date: new Date('2026-10-02T10:00:00.000Z'),
-      status: MatchStatus.LIVE,
-      actualStartedAt: startedAt,
-      firstHalfEndedAt: null,
-      secondHalfStartedAt: null,
-      actualEndedAt: null,
-      homeScore: 0,
-      awayScore: 0,
-      homeTeam: {
+      prismaMock.match.findUnique.mockResolvedValue({
         id: 1,
-        name: 'Szeged FC',
-      },
-      awayTeam: {
-        id: 2,
-        name: 'Budapest FC',
-      },
-      season: {
-        id: 1,
-        competition: {
+        date: new Date('2026-10-02T10:00:00.000Z'),
+        status: MatchStatus.LIVE,
+        actualStartedAt: startedAt,
+        firstHalfEndedAt: null,
+        secondHalfStartedAt: null,
+        actualEndedAt: null,
+        homeScore: 0,
+        awayScore: 0,
+        homeTeam: {
           id: 1,
-          halfDurationMinutes: 45,
+          name: 'Szeged FC',
         },
-      },
-      events: [],
-    });
-
-    const result = await service.findOne(1);
-
-    expect(result.matchMinute).toBe(11);
-    expect(result.clockDisplay).toBe("11'");
-
-    expect(prismaMock.match.findUnique).toHaveBeenCalledWith({
-      where: { id: 1 },
-      include: {
-        homeTeam: true,
-        awayTeam: true,
+        awayTeam: {
+          id: 2,
+          name: 'Budapest FC',
+        },
         season: {
-          include: {
-            competition: true,
+          id: 1,
+          competition: {
+            id: 1,
+            halfDurationMinutes: 45,
           },
         },
-        events: {
-          include: {
-            player: true,
+        events: [],
+      });
+
+      const result = await service.findOne(1);
+
+      expect(result.matchMinute).toBe(11);
+      expect(result.clockDisplay).toBe("11'");
+
+      expect(prismaMock.match.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 },
+        include: {
+          homeTeam: true,
+          awayTeam: true,
+          season: {
+            include: {
+              competition: true,
+            },
           },
-          orderBy: [
-            { minute: 'asc' },
-            { createdAt: 'asc' },
-          ],
-        },
-      },
-    });
-  });
-
-  it('should reject when the match does not exist', async () => {
-    prismaMock.match.findUnique.mockResolvedValue(null);
-
-    await expect(
-      service.findOne(999),
-    ).rejects.toThrow(
-      'Match with ID 999 not found',
-    );
-  });
-});
-describe('findAll', () => {
-  beforeEach(() => {
-    prismaMock.match.findMany.mockResolvedValue([]);
-  });
-
-  it('should return all matches without filters', async () => {
-    await service.findAll();
-
-    expect(prismaMock.match.findMany).toHaveBeenCalledWith({
-      where: {},
-      include: {
-        homeTeam: true,
-        awayTeam: true,
-        season: {
-          include: {
-            competition: true,
+          events: {
+            include: {
+              player: true,
+            },
+            orderBy: [{ minute: 'asc' }, { createdAt: 'asc' }],
           },
         },
-      },
-      orderBy: {
-        date: 'asc',
-      },
+      });
+    });
+
+    it('should reject when the match does not exist', async () => {
+      prismaMock.match.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOne(999)).rejects.toThrow(
+        'Match with ID 999 not found',
+      );
     });
   });
-
-  it('should filter matches by season', async () => {
-    await service.findAll({
-      seasonId: 1,
+  describe('findAll', () => {
+    beforeEach(() => {
+      prismaMock.match.findMany.mockResolvedValue([]);
     });
 
-    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          seasonId: 1,
-        },
-      }),
-    );
-  });
+    it('should return all matches without filters', async () => {
+      await service.findAll();
 
-  it('should filter matches by status', async () => {
-    await service.findAll({
-      status: MatchStatus.LIVE,
-    });
-
-    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          status: MatchStatus.LIVE,
-        },
-      }),
-    );
-  });
-
-  it('should filter matches where the team is home or away', async () => {
-    await service.findAll({
-      teamId: 1,
-    });
-
-    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          OR: [
-            {
-              homeTeamId: 1,
+      expect(prismaMock.match.findMany).toHaveBeenCalledWith({
+        where: {},
+        include: {
+          homeTeam: true,
+          awayTeam: true,
+          season: {
+            include: {
+              competition: true,
             },
-            {
-              awayTeamId: 1,
-            },
-          ],
+          },
         },
-      }),
-    );
-  });
-
-  it('should combine multiple filters', async () => {
-    await service.findAll({
-      seasonId: 1,
-      teamId: 2,
-      status: MatchStatus.FINISHED,
+        orderBy: {
+          date: 'asc',
+        },
+      });
     });
 
-    expect(prismaMock.match.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          seasonId: 1,
-          status: MatchStatus.FINISHED,
-          OR: [
-            {
-              homeTeamId: 2,
-            },
-            {
-              awayTeamId: 2,
-            },
-          ],
-        },
-      }),
-    );
+    it('should filter matches by season', async () => {
+      await service.findAll({
+        seasonId: 1,
+      });
+
+      expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            seasonId: 1,
+          },
+        }),
+      );
+    });
+
+    it('should filter matches by status', async () => {
+      await service.findAll({
+        status: MatchStatus.LIVE,
+      });
+
+      expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: MatchStatus.LIVE,
+          },
+        }),
+      );
+    });
+
+    it('should filter matches where the team is home or away', async () => {
+      await service.findAll({
+        teamId: 1,
+      });
+
+      expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              {
+                homeTeamId: 1,
+              },
+              {
+                awayTeamId: 1,
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should combine multiple filters', async () => {
+      await service.findAll({
+        seasonId: 1,
+        teamId: 2,
+        status: MatchStatus.FINISHED,
+      });
+
+      expect(prismaMock.match.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            seasonId: 1,
+            status: MatchStatus.FINISHED,
+            OR: [
+              {
+                homeTeamId: 2,
+              },
+              {
+                awayTeamId: 2,
+              },
+            ],
+          },
+        }),
+      );
+    });
   });
-});
 });

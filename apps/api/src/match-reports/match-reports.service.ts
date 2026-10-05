@@ -3,33 +3,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  MatchReportStatus,
-} from '../../generated/prisma/client';
+import { MatchReportStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMatchReportDto } from './dto/create-match-report.dto';
 
 @Injectable()
 export class MatchReportsService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(
-    data: CreateMatchReportDto,
-    authorId: number,
-  ) {
-    const match =
-      await this.prisma.match.findUnique({
-        where: {
-          id: data.matchId,
-        },
-      });
+  async create(data: CreateMatchReportDto, authorId: number) {
+    const match = await this.prisma.match.findUnique({
+      where: {
+        id: data.matchId,
+      },
+    });
 
     if (!match) {
-      throw new NotFoundException(
-        'Match not found',
-      );
+      throw new NotFoundException('Match not found');
     }
 
     if (match.status !== 'FINISHED') {
@@ -80,20 +70,17 @@ export class MatchReportsService {
   }
 
   async findByMatch(matchId: number) {
-    const match =
-      await this.prisma.match.findUnique({
-        where: {
-          id: matchId,
-        },
-        select: {
-          id: true,
-        },
-      });
+    const match = await this.prisma.match.findUnique({
+      where: {
+        id: matchId,
+      },
+      select: {
+        id: true,
+      },
+    });
 
     if (!match) {
-      throw new NotFoundException(
-        'Match not found',
-      );
+      throw new NotFoundException('Match not found');
     }
 
     return this.prisma.matchReport.findMany({
@@ -129,17 +116,14 @@ export class MatchReportsService {
     status: MatchReportStatus,
     reviewedById: number,
   ) {
-    const report =
-      await this.prisma.matchReport.findUnique({
-        where: {
-          id,
-        },
-      });
+    const report = await this.prisma.matchReport.findUnique({
+      where: {
+        id,
+      },
+    });
 
     if (!report) {
-      throw new NotFoundException(
-        'Match report not found',
-      );
+      throw new NotFoundException('Match report not found');
     }
 
     if (status === MatchReportStatus.OPEN) {

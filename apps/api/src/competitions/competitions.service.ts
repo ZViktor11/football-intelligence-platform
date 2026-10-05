@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompetitionDto } from './dto/create-competition.dto';
@@ -32,43 +29,37 @@ export class CompetitionsService {
   }
 
   async findOne(id: number) {
-    const competition =
-      await this.prisma.competition.findUnique({
-        where: { id },
-        include: {
-          seasons: {
-            include: {
-              teams: true,
-              matches: {
-                include: {
-                  homeTeam: true,
-                  awayTeam: true,
-                },
-                orderBy: {
-                  date: 'asc',
-                },
+    const competition = await this.prisma.competition.findUnique({
+      where: { id },
+      include: {
+        seasons: {
+          include: {
+            teams: true,
+            matches: {
+              include: {
+                homeTeam: true,
+                awayTeam: true,
+              },
+              orderBy: {
+                date: 'asc',
               },
             },
-            orderBy: {
-              startsAt: 'desc',
-            },
+          },
+          orderBy: {
+            startsAt: 'desc',
           },
         },
-      });
+      },
+    });
 
     if (!competition) {
-      throw new NotFoundException(
-        `Competition with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Competition with ID ${id} not found`);
     }
 
     return competition;
   }
 
-  async update(
-    id: number,
-    updateCompetitionDto: UpdateCompetitionDto,
-  ) {
+  async update(id: number, updateCompetitionDto: UpdateCompetitionDto) {
     await this.findOne(id);
 
     return this.prisma.competition.update({

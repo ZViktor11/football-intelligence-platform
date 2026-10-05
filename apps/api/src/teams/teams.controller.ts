@@ -22,10 +22,7 @@ export class TeamsController {
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-  )
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN)
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);
   }

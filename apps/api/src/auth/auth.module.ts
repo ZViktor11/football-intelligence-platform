@@ -16,19 +16,8 @@ import { MatchAccessGuard } from './match-access.guard';
       },
     }),
   ],
-  providers: [
-    AuthService,
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-  ],
+  providers: [AuthService, AuthGuard, RolesGuard, MatchAccessGuard],
   controllers: [AuthController],
-  exports: [
-    AuthService,
-    AuthGuard,
-    RolesGuard,
-    MatchAccessGuard,
-    JwtModule,
-  ],
+  exports: [AuthService, AuthGuard, RolesGuard, MatchAccessGuard, JwtModule],
 })
 export class AuthModule {}

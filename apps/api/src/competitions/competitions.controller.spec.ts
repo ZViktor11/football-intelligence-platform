@@ -29,9 +29,7 @@ describe('CompetitionsController', () => {
       })
       .compile();
 
-    controller = module.get<CompetitionsController>(
-      CompetitionsController,
-    );
+    controller = module.get<CompetitionsController>(CompetitionsController);
   });
 
   it('should be defined', () => {

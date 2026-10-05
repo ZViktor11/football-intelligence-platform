@@ -39,11 +39,11 @@ export class AuthController {
   }
 
   @Get('admin-test')
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SYSTEM_ADMIN)
-    adminTest() {
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.SYSTEM_ADMIN)
+  adminTest() {
     return {
-        message: 'System admin access granted',
+      message: 'System admin access granted',
     };
-    }
+  }
 }

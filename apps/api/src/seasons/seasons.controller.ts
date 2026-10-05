@@ -22,10 +22,7 @@ export class SeasonsController {
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(
-    Role.SYSTEM_ADMIN,
-    Role.COMPETITION_ADMIN,
-  )
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN)
   create(@Body() createSeasonDto: CreateSeasonDto) {
     return this.seasonsService.create(createSeasonDto);
   }
@@ -33,6 +30,11 @@ export class SeasonsController {
   @Get()
   findAll() {
     return this.seasonsService.findAll();
+  }
+
+  @Get(':id/standings')
+  getStandings(@Param('id', ParseIntPipe) id: number) {
+    return this.seasonsService.getStandings(id);
   }
 
   @Get(':id')

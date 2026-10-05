@@ -23,15 +23,8 @@ export class MatchSquadsService {
     }
   }
 
-  async create(
-    createMatchSquadPlayerDto: CreateMatchSquadPlayerDto,
-  ) {
-    const {
-      matchId,
-      teamId,
-      playerId,
-      role,
-    } = createMatchSquadPlayerDto;
+  async create(createMatchSquadPlayerDto: CreateMatchSquadPlayerDto) {
+    const { matchId, teamId, playerId, role } = createMatchSquadPlayerDto;
 
     const match = await this.prisma.match.findUnique({
       where: {
@@ -40,21 +33,16 @@ export class MatchSquadsService {
     });
 
     if (!match) {
-      throw new NotFoundException(
-        `Match with ID ${matchId} not found`,
-      );
+      throw new NotFoundException(`Match with ID ${matchId} not found`);
     }
 
     this.ensureSquadIsEditable(match.status);
 
     const teamBelongsToMatch =
-      teamId === match.homeTeamId ||
-      teamId === match.awayTeamId;
+      teamId === match.homeTeamId || teamId === match.awayTeamId;
 
     if (!teamBelongsToMatch) {
-      throw new BadRequestException(
-        'Team does not belong to this match',
-      );
+      throw new BadRequestException('Team does not belong to this match');
     }
 
     const player = await this.prisma.player.findUnique({
@@ -64,9 +52,7 @@ export class MatchSquadsService {
     });
 
     if (!player) {
-      throw new NotFoundException(
-        `Player with ID ${playerId} not found`,
-      );
+      throw new NotFoundException(`Player with ID ${playerId} not found`);
     }
 
     if (player.teamId !== teamId) {
@@ -75,20 +61,17 @@ export class MatchSquadsService {
       );
     }
 
-    const existingEntry =
-      await this.prisma.matchSquadPlayer.findUnique({
-        where: {
-          matchId_playerId: {
-            matchId,
-            playerId,
-          },
+    const existingEntry = await this.prisma.matchSquadPlayer.findUnique({
+      where: {
+        matchId_playerId: {
+          matchId,
+          playerId,
         },
-      });
+      },
+    });
 
     if (existingEntry) {
-      throw new ConflictException(
-        'Player is already selected for this match',
-      );
+      throw new ConflictException('Player is already selected for this match');
     }
 
     return this.prisma.matchSquadPlayer.create({
@@ -113,9 +96,7 @@ export class MatchSquadsService {
     });
 
     if (!match) {
-      throw new NotFoundException(
-        `Match with ID ${matchId} not found`,
-      );
+      throw new NotFoundException(`Match with ID ${matchId} not found`);
     }
 
     return this.prisma.matchSquadPlayer.findMany({
@@ -144,25 +125,20 @@ export class MatchSquadsService {
     id: number,
     updateMatchSquadPlayerDto: UpdateMatchSquadPlayerDto,
   ) {
-    const squadEntry =
-      await this.prisma.matchSquadPlayer.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          match: true,
-        },
-      });
+    const squadEntry = await this.prisma.matchSquadPlayer.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        match: true,
+      },
+    });
 
     if (!squadEntry) {
-      throw new NotFoundException(
-        `Match squad player with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Match squad player with ID ${id} not found`);
     }
 
-    this.ensureSquadIsEditable(
-      squadEntry.match.status,
-    );
+    this.ensureSquadIsEditable(squadEntry.match.status);
 
     return this.prisma.matchSquadPlayer.update({
       where: {
@@ -179,25 +155,20 @@ export class MatchSquadsService {
   }
 
   async remove(id: number) {
-    const squadEntry =
-      await this.prisma.matchSquadPlayer.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          match: true,
-        },
-      });
+    const squadEntry = await this.prisma.matchSquadPlayer.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        match: true,
+      },
+    });
 
     if (!squadEntry) {
-      throw new NotFoundException(
-        `Match squad player with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Match squad player with ID ${id} not found`);
     }
 
-    this.ensureSquadIsEditable(
-      squadEntry.match.status,
-    );
+    this.ensureSquadIsEditable(squadEntry.match.status);
 
     return this.prisma.matchSquadPlayer.delete({
       where: {

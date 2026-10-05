@@ -10,10 +10,7 @@ import type { Request } from 'express';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
-import {
-  MATCH_ACCESS_KEY,
-  MatchAccessSource,
-} from './match-access.decorator';
+import { MATCH_ACCESS_KEY, MatchAccessSource } from './match-access.decorator';
 import { Role } from '../../generated/prisma/client';
 
 type AuthenticatedRequest = Request & {
@@ -34,18 +31,16 @@ export class MatchAccessGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const source =
-      this.reflector.getAllAndOverride<MatchAccessSource>(
-        MATCH_ACCESS_KEY,
-        [context.getHandler(), context.getClass()],
-      );
+    const source = this.reflector.getAllAndOverride<MatchAccessSource>(
+      MATCH_ACCESS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!source) {
       return true;
     }
 
-    const request =
-      context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const userId = request.user?.sub;
 
@@ -53,22 +48,17 @@ export class MatchAccessGuard implements CanActivate {
       throw new ForbiddenException();
     }
 
-    const assignments =
-      await this.authService.getUserRoles(userId);
+    const assignments = await this.authService.getUserRoles(userId);
 
     const isSystemAdmin = assignments.some(
-      (assignment) =>
-        assignment.role === Role.SYSTEM_ADMIN,
+      (assignment) => assignment.role === Role.SYSTEM_ADMIN,
     );
 
     if (isSystemAdmin) {
       return true;
     }
 
-    const matchId = await this.resolveMatchId(
-      request,
-      source,
-    );
+    const matchId = await this.resolveMatchId(request, source);
 
     const match = await this.prisma.match.findUnique({
       where: {
@@ -91,8 +81,7 @@ export class MatchAccessGuard implements CanActivate {
     const competitionAdminHasAccess = assignments.some(
       (assignment) =>
         assignment.role === Role.COMPETITION_ADMIN &&
-        assignment.competitionId ===
-          match.season.competitionId,
+        assignment.competitionId === match.season.competitionId,
     );
 
     if (competitionAdminHasAccess) {
@@ -100,20 +89,20 @@ export class MatchAccessGuard implements CanActivate {
     }
 
     const isMatchAdmin = assignments.some(
-      (assignment) =>
-        assignment.role === Role.MATCH_ADMIN,
+      (assignment) => assignment.role === Role.MATCH_ADMIN,
     );
 
     if (isMatchAdmin) {
-      const matchAssignment =
-        await this.prisma.matchAdminAssignment.findUnique({
+      const matchAssignment = await this.prisma.matchAdminAssignment.findUnique(
+        {
           where: {
             userId_matchId: {
               userId,
               matchId,
             },
           },
-        });
+        },
+      );
 
       if (matchAssignment) {
         return true;
@@ -153,25 +142,20 @@ export class MatchAccessGuard implements CanActivate {
       const eventId = Number(request.params.id);
 
       if (!Number.isInteger(eventId)) {
-        throw new NotFoundException(
-          'Match event not found',
-        );
+        throw new NotFoundException('Match event not found');
       }
 
-      const event =
-        await this.prisma.matchEvent.findUnique({
-          where: {
-            id: eventId,
-          },
-          select: {
-            matchId: true,
-          },
-        });
+      const event = await this.prisma.matchEvent.findUnique({
+        where: {
+          id: eventId,
+        },
+        select: {
+          matchId: true,
+        },
+      });
 
       if (!event) {
-        throw new NotFoundException(
-          'Match event not found',
-        );
+        throw new NotFoundException('Match event not found');
       }
 
       return event.matchId;
@@ -180,25 +164,20 @@ export class MatchAccessGuard implements CanActivate {
     const squadEntryId = Number(request.params.id);
 
     if (!Number.isInteger(squadEntryId)) {
-      throw new NotFoundException(
-        'Match squad player not found',
-      );
+      throw new NotFoundException('Match squad player not found');
     }
 
-    const squadEntry =
-      await this.prisma.matchSquadPlayer.findUnique({
-        where: {
-          id: squadEntryId,
-        },
-        select: {
-          matchId: true,
-        },
-      });
+    const squadEntry = await this.prisma.matchSquadPlayer.findUnique({
+      where: {
+        id: squadEntryId,
+      },
+      select: {
+        matchId: true,
+      },
+    });
 
     if (!squadEntry) {
-      throw new NotFoundException(
-        'Match squad player not found',
-      );
+      throw new NotFoundException('Match squad player not found');
     }
 
     return squadEntry.matchId;
