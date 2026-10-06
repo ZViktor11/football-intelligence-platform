@@ -144,6 +144,57 @@ type TeamListItem = {
   }
 }
 
+type PlayerListItem = {
+  id: number
+  firstName: string
+  lastName: string
+  birthDate: string | null
+  position: string | null
+  isActive: boolean
+  teamId: number | null
+  team: {
+    id: number
+    name?: string
+    city: string | null
+    seasonId: number
+  } | null
+}
+
+type PlayerDetail = PlayerListItem & {
+  statistics: {
+    appearances: number
+    goals: number
+    assists: number
+    ownGoals: number
+    yellowCards: number
+    redCards: number
+  }
+}
+
+type PlayerMatchHistory = {
+  matchId: number
+  date: string
+  team: Team
+  opponent: Team
+  homeTeam: Team
+  awayTeam: Team
+  homeScore: number
+  awayScore: number
+  competition: Competition
+  season: {
+    id: number
+    name: string
+  }
+  role: 'STARTER' | 'SUBSTITUTE'
+  statistics: {
+    goals: number
+    assists: number
+    ownGoals: number
+    yellowCards: number
+    redCards: number
+  }
+}
+
 function Header() {
   return (
     <header className="header">
@@ -156,7 +207,7 @@ function Header() {
         <Link to="/">Matches</Link>
         <Link to="/competitions">Competitions</Link>
         <Link to="/teams">Teams</Link>
-        <a href="#players">Players</a>
+        <Link to="/players">Players</Link>
       </nav>
     </header>
   )
@@ -225,28 +276,28 @@ function MatchListPage() {
   const [error, setError] = useState<string | null>(null)
 
   const liveMatches = matches.filter(
-  (match) =>
-    match.status === 'LIVE' ||
-    match.status === 'HALF_TIME',
-)
-
-const upcomingMatches = matches
-  .filter(
     (match) =>
-      match.status === 'SCHEDULED' ||
-      match.status === 'PRE_MATCH',
-  )
-  .sort(
-    (a, b) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime(),
+      match.status === 'LIVE' ||
+      match.status === 'HALF_TIME',
   )
 
-const finishedMatches = matches
-  .filter((match) => match.status === 'FINISHED')
-  .sort(
-    (a, b) =>
-      new Date(b.date).getTime() - new Date(a.date).getTime(),
-  )
+  const upcomingMatches = matches
+    .filter(
+      (match) =>
+        match.status === 'SCHEDULED' ||
+        match.status === 'PRE_MATCH',
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime(),
+    )
+
+  const finishedMatches = matches
+    .filter((match) => match.status === 'FINISHED')
+    .sort(
+      (a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )
 
   useEffect(() => {
     async function loadMatches() {
@@ -285,81 +336,81 @@ const finishedMatches = matches
       </section>
 
       <section className="matches-section" id="matches">
-  <div className="section-heading">
-    <div>
-      <p className="eyebrow">Matches</p>
-      <h2>Match centre</h2>
-    </div>
-
-    {!loading && !error && (
-      <span className="status-badge">
-        {matches.length} matches loaded
-      </span>
-    )}
-  </div>
-
-  {loading && (
-    <div className="empty-state">
-      <h3>Loading matches...</h3>
-    </div>
-  )}
-
-  {error && (
-    <div className="empty-state">
-      <h3>Could not load matches</h3>
-      <p>{error}</p>
-    </div>
-  )}
-
-  {!loading && !error && matches.length === 0 && (
-    <div className="empty-state">
-      <h3>No matches available</h3>
-    </div>
-  )}
-
-  {!loading && !error && matches.length > 0 && (
-    <>
-      {liveMatches.length > 0 && (
-        <div>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Now</p>
-              <h2>Live matches</h2>
-            </div>
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Matches</p>
+            <h2>Match centre</h2>
           </div>
 
-          <MatchCards matches={liveMatches} />
+          {!loading && !error && (
+            <span className="status-badge">
+              {matches.length} matches loaded
+            </span>
+          )}
         </div>
-      )}
 
-      {upcomingMatches.length > 0 && (
-        <div>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Coming up</p>
-              <h2>Upcoming matches</h2>
-            </div>
+        {loading && (
+          <div className="empty-state">
+            <h3>Loading matches...</h3>
           </div>
+        )}
 
-          <MatchCards matches={upcomingMatches} />
-        </div>
-      )}
-
-      {finishedMatches.length > 0 && (
-        <div>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Completed</p>
-              <h2>Results</h2>
-            </div>
+        {error && (
+          <div className="empty-state">
+            <h3>Could not load matches</h3>
+            <p>{error}</p>
           </div>
+        )}
 
-          <MatchCards matches={finishedMatches} />
-        </div>
-      )}
-    </>
-  )}
-</section>
+        {!loading && !error && matches.length === 0 && (
+          <div className="empty-state">
+            <h3>No matches available</h3>
+          </div>
+        )}
+
+        {!loading && !error && matches.length > 0 && (
+          <>
+            {liveMatches.length > 0 && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Now</p>
+                    <h2>Live matches</h2>
+                  </div>
+                </div>
+
+                <MatchCards matches={liveMatches} />
+              </div>
+            )}
+
+            {upcomingMatches.length > 0 && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Coming up</p>
+                    <h2>Upcoming matches</h2>
+                  </div>
+                </div>
+
+                <MatchCards matches={upcomingMatches} />
+              </div>
+            )}
+
+            {finishedMatches.length > 0 && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Completed</p>
+                    <h2>Results</h2>
+                  </div>
+                </div>
+
+                <MatchCards matches={finishedMatches} />
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </main>
   )
 }
@@ -531,34 +582,34 @@ function MatchDetailPage() {
 
   const homeStarters = match
     ? squad.filter(
-        (entry) =>
-          entry.teamId === match.homeTeam.id &&
-          entry.role === 'STARTER',
-      )
+      (entry) =>
+        entry.teamId === match.homeTeam.id &&
+        entry.role === 'STARTER',
+    )
     : []
 
   const homeSubstitutes = match
     ? squad.filter(
-        (entry) =>
-          entry.teamId === match.homeTeam.id &&
-          entry.role === 'SUBSTITUTE',
-      )
+      (entry) =>
+        entry.teamId === match.homeTeam.id &&
+        entry.role === 'SUBSTITUTE',
+    )
     : []
 
   const awayStarters = match
     ? squad.filter(
-        (entry) =>
-          entry.teamId === match.awayTeam.id &&
-          entry.role === 'STARTER',
-      )
+      (entry) =>
+        entry.teamId === match.awayTeam.id &&
+        entry.role === 'STARTER',
+    )
     : []
 
   const awaySubstitutes = match
     ? squad.filter(
-        (entry) =>
-          entry.teamId === match.awayTeam.id &&
-          entry.role === 'SUBSTITUTE',
-      )
+      (entry) =>
+        entry.teamId === match.awayTeam.id &&
+        entry.role === 'SUBSTITUTE',
+    )
     : []
 
   return (
@@ -881,11 +932,11 @@ function CompetitionsPage() {
   }, [])
 
   useEffect(() => {
-  if (selectedSeasonId === null) {
-    return
-  }
+    if (selectedSeasonId === null) {
+      return
+    }
 
-  async function loadStandings() {
+    async function loadStandings() {
       try {
         setStandingsLoading(true)
         setError(null)
@@ -1023,10 +1074,10 @@ function CompetitionsPage() {
                       <tr key={entry.teamId}>
                         <td>{entry.position}</td>
                         <td>
-  <Link to={`/teams/${entry.teamId}`}>
-    <strong>{entry.teamName}</strong>
-  </Link>
-</td>
+                          <Link to={`/teams/${entry.teamId}`}>
+                            <strong>{entry.teamName}</strong>
+                          </Link>
+                        </td>
                         <td>{entry.played}</td>
                         <td>{entry.won}</td>
                         <td>{entry.drawn}</td>
@@ -1071,7 +1122,7 @@ function TeamsPage() {
         }
 
         const data: TeamListItem[] = await response.json()
-setTeams(data)
+        setTeams(data)
       } catch (err) {
         setError(
           err instanceof Error
@@ -1152,6 +1203,427 @@ setTeams(data)
                 </div>
 
                 <span>{team.season.name}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  )
+}
+
+function PlayersPage() {
+  const [players, setPlayers] = useState<PlayerListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadPlayers() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await fetch(
+          'http://localhost:3000/players',
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            `API request failed: ${response.status}`,
+          )
+        }
+
+        const data: PlayerListItem[] = await response.json()
+        setPlayers(data)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load players',
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadPlayers()
+  }, [])
+
+  return (
+    <main className="main">
+      <section className="hero">
+        <p className="eyebrow">Players</p>
+        <h1>Football players</h1>
+
+        <p className="hero-description">
+          Browse registered players, teams and positions.
+        </p>
+      </section>
+
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Directory</p>
+            <h2>Players</h2>
+          </div>
+
+          {!loading && !error && (
+            <span className="status-badge">
+              {players.length} players
+            </span>
+          )}
+        </div>
+
+        {loading && (
+          <div className="empty-state">
+            <h3>Loading players...</h3>
+          </div>
+        )}
+
+        {error && (
+          <div className="empty-state">
+            <h3>Could not load players</h3>
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && players.length === 0 && (
+          <div className="empty-state">
+            <h3>No players available</h3>
+          </div>
+        )}
+
+        {!loading && !error && players.length > 0 && (
+          <div className="team-directory">
+            {players.map((player) => (
+              <Link
+                className="team-directory-card"
+                key={player.id}
+                to={`/players/${player.id}`}
+              >
+                <div>
+                  <p className="eyebrow">
+                    {player.position ?? 'Unknown position'}
+                  </p>
+
+                  <h3>
+                    {player.firstName} {player.lastName}
+                  </h3>
+
+                  <p>
+                    {player.team?.name ?? 'No team'}
+                  </p>
+                </div>
+
+                <span>
+                  {player.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  )
+}
+
+
+
+function PlayerDetailPage() {
+  const { id } = useParams()
+  const [player, setPlayer] = useState<PlayerDetail | null>(null)
+  const [matchHistory, setMatchHistory] = useState<PlayerMatchHistory[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadPlayer() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const [playerResponse, historyResponse] =
+          await Promise.all([
+            fetch(`http://localhost:3000/players/${id}`),
+            fetch(`http://localhost:3000/players/${id}/matches`),
+          ])
+
+        if (!playerResponse.ok) {
+          throw new Error(
+            `Player API request failed: ${playerResponse.status}`,
+          )
+        }
+
+        if (!historyResponse.ok) {
+          throw new Error(
+            `Match history API request failed: ${historyResponse.status}`,
+          )
+        }
+
+        const playerData: PlayerDetail =
+          await playerResponse.json()
+
+        const historyData: PlayerMatchHistory[] =
+          await historyResponse.json()
+
+        setPlayer(playerData)
+        setMatchHistory(historyData)
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load player',
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadPlayer()
+  }, [id])
+
+  if (loading) {
+    return (
+      <main className="main">
+        <div className="empty-state">
+          <h3>Loading player...</h3>
+        </div>
+      </main>
+    )
+  }
+
+  if (error || !player) {
+    return (
+      <main className="main">
+        <div className="empty-state">
+          <h3>Could not load player</h3>
+          <p>{error ?? 'Player not found'}</p>
+        </div>
+      </main>
+    )
+  }
+
+
+
+  return (
+    <main className="main">
+      <section className="hero">
+        <p className="eyebrow">
+          {player.position ?? 'Player'}
+        </p>
+
+        <h1>
+          {player.firstName} {player.lastName}
+        </h1>
+
+        <p className="hero-description">
+          {player.team?.name ?? 'No current team'}
+        </p>
+      </section>
+
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Player profile</p>
+            <h2>Overview</h2>
+          </div>
+
+          <span className="status-badge">
+            {player.isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+
+        <div className="team-directory-card">
+          <div>
+            <p className="eyebrow">Birth date</p>
+
+            <h3>
+              {player.birthDate
+                ? new Date(player.birthDate).toLocaleDateString()
+                : 'Unknown'}
+            </h3>
+          </div>
+        </div>
+
+        <div className="team-directory">
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Position</p>
+              <h3>
+                {player.position ?? 'Unknown'}
+              </h3>
+            </div>
+          </div>
+
+
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Team</p>
+
+              {player.team ? (
+                <Link to={`/teams/${player.team.id}`}>
+                  <h3>
+                    {player.team.name ?? 'Unknown team'}
+                  </h3>
+                </Link>
+              ) : (
+                <h3>No team</h3>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Performance</p>
+            <h2>Statistics</h2>
+          </div>
+        </div>
+
+        <div className="team-directory">
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Appearances</p>
+              <h3>{player.statistics.appearances}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Goals</p>
+              <h3>{player.statistics.goals}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Assists</p>
+              <h3>{player.statistics.assists}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Own goals</p>
+              <h3>{player.statistics.ownGoals}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Yellow cards</p>
+              <h3>{player.statistics.yellowCards}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Red cards</p>
+              <h3>{player.statistics.redCards}</h3>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Appearances</p>
+            <h2>Match history</h2>
+          </div>
+
+          <span className="status-badge">
+            {matchHistory.length} matches
+          </span>
+        </div>
+
+        {matchHistory.length === 0 ? (
+          <div className="empty-state">
+            <h3>No finished matches</h3>
+            <p>
+              This player has no finished match appearances yet.
+            </p>
+          </div>
+        ) : (
+          <div className="match-list">
+            {matchHistory.map((appearance) => (
+              <Link
+                className="match-card-link"
+                key={appearance.matchId}
+                to={`/matches/${appearance.matchId}`}
+              >
+                <article className="match-card">
+                  <div className="match-meta">
+                    <div>
+                      <strong>
+                        {appearance.competition.name}
+                      </strong>
+
+                      <span>{appearance.season.name}</span>
+                    </div>
+
+                    <span className="status-badge">
+                      {appearance.role === 'STARTER'
+                        ? 'Starter'
+                        : 'Substitute'}
+                    </span>
+                  </div>
+
+                  <div className="match-content">
+                    <div className="team team-home">
+                      <strong>
+                        {appearance.homeTeam.name}
+                      </strong>
+                    </div>
+
+                    <div className="score">
+                      <strong>
+                        {appearance.homeScore} :{' '}
+                        {appearance.awayScore}
+                      </strong>
+
+                      <span>
+                        {new Date(
+                          appearance.date,
+                        ).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="team team-away">
+                      <strong>
+                        {appearance.awayTeam.name}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="match-meta">
+                    <span>
+                      Goals: {appearance.statistics.goals}
+                    </span>
+
+                    <span>
+                      Assists: {appearance.statistics.assists}
+                    </span>
+
+                    <span>
+                      Yellow cards:{' '}
+                      {appearance.statistics.yellowCards}
+                    </span>
+
+                    <span>
+                      Red cards:{' '}
+                      {appearance.statistics.redCards}
+                    </span>
+
+                    {appearance.statistics.ownGoals > 0 && (
+                      <span>
+                        Own goals:{' '}
+                        {appearance.statistics.ownGoals}
+                      </span>
+                    )}
+                  </div>
+                </article>
               </Link>
             ))}
           </div>
@@ -1342,24 +1814,24 @@ function App() {
         />
 
         <Route
-  path="/competitions"
-  element={<CompetitionsPage />}
-/>
+          path="/competitions"
+          element={<CompetitionsPage />}
+        />
 
-<Route
-  path="/teams"
-  element={<TeamsPage />}
-/>
+        <Route
+          path="/teams"
+          element={<TeamsPage />}
+        />
 
-<Route
-  path="/teams/:id"
-  element={<TeamDetailPage />}
-/>
+        <Route
+          path="/teams/:id"
+          element={<TeamDetailPage />}
+        />
 
-<Route
-  path="/matches/:id"
-  element={<MatchDetailPage />}
-/>
+        <Route
+          path="/matches/:id"
+          element={<MatchDetailPage />}
+        />
 
         <Route
           path="/admin/login"
@@ -1375,8 +1847,17 @@ function App() {
           path="/admin/matches/:id"
           element={<AdminMatchPage />}
         />
+        <Route
+          path="/players"
+          element={<PlayersPage />}
+        />
+
+        <Route
+          path="/players/:id"
+          element={<PlayerDetailPage />}
+        />
       </Routes>
-      
+
     </div>
   )
 }
