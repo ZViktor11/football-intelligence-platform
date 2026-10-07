@@ -127,6 +127,33 @@ type TeamDetail = {
     }
   }
   players: TeamPlayer[]
+  statistics: {
+    played: number
+    wins: number
+    draws: number
+    losses: number
+    goalsFor: number
+    goalsAgainst: number
+    goalDifference: number
+    points: number
+  }
+}
+
+type TeamMatchHistory = {
+  matchId: number
+  date: string
+  homeTeam: Team
+  awayTeam: Team
+  homeScore: number
+  awayScore: number
+  opponent: Team
+  competition: Competition
+  season: {
+    id: number
+    name: string
+  }
+  venue: 'HOME' | 'AWAY'
+  result: 'WIN' | 'DRAW' | 'LOSS'
 }
 
 type TeamListItem = {
@@ -1637,7 +1664,8 @@ function TeamDetailPage() {
   const { id } = useParams()
 
   const [team, setTeam] = useState<TeamDetail | null>(null)
-  const [matches, setMatches] = useState<Match[]>([])
+  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([])
+  const [matchHistory, setMatchHistory] = useState<TeamMatchHistory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -1647,10 +1675,11 @@ function TeamDetailPage() {
         setLoading(true)
         setError(null)
 
-        const [teamResponse, matchesResponse] =
+        const [teamResponse, matchesResponse, historyResponse] =
           await Promise.all([
             fetch(`http://localhost:3000/teams/${id}`),
             fetch(`http://localhost:3000/matches?teamId=${id}`),
+            fetch(`http://localhost:3000/teams/${id}/matches`),
           ])
 
         if (!teamResponse.ok) {
@@ -1665,14 +1694,34 @@ function TeamDetailPage() {
           )
         }
 
-        const teamData: TeamDetail =
-          await teamResponse.json()
+        if (!historyResponse.ok) {
+          throw new Error(
+            `Match history request failed: ${historyResponse.status}`,
+          )
+        }
 
-        const matchesData: Match[] =
-          await matchesResponse.json()
+        const teamData: TeamDetail = await teamResponse.json()
+        const matchesData: Match[] = await matchesResponse.json()
+        const historyData: TeamMatchHistory[] =
+          await historyResponse.json()
 
         setTeam(teamData)
-        setMatches(matchesData)
+
+        setUpcomingMatches(
+          matchesData
+            .filter(
+              (match) =>
+                match.status === 'SCHEDULED' ||
+                match.status === 'PRE_MATCH',
+            )
+            .sort(
+              (a, b) =>
+                new Date(a.date).getTime() -
+                new Date(b.date).getTime(),
+            ),
+        )
+
+        setMatchHistory(historyData)
       } catch (err) {
         setError(
           err instanceof Error
@@ -1708,26 +1757,6 @@ function TeamDetailPage() {
     )
   }
 
-  const upcomingMatches = matches
-    .filter(
-      (match) =>
-        match.status === 'SCHEDULED' ||
-        match.status === 'PRE_MATCH',
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.date).getTime() -
-        new Date(b.date).getTime(),
-    )
-
-  const recentMatches = matches
-    .filter((match) => match.status === 'FINISHED')
-    .sort(
-      (a, b) =>
-        new Date(b.date).getTime() -
-        new Date(a.date).getTime(),
-    )
-
   return (
     <main className="main">
       <section className="hero">
@@ -1746,6 +1775,80 @@ function TeamDetailPage() {
       <section className="matches-section">
         <div className="section-heading">
           <div>
+            <p className="eyebrow">Performance</p>
+            <h2>Statistics</h2>
+          </div>
+
+          <span className="status-badge">
+            {team.statistics.points} points
+          </span>
+        </div>
+
+        <div className="team-directory">
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Played</p>
+              <h3>{team.statistics.played}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Wins</p>
+              <h3>{team.statistics.wins}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Draws</p>
+              <h3>{team.statistics.draws}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Losses</p>
+              <h3>{team.statistics.losses}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Goals for</p>
+              <h3>{team.statistics.goalsFor}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Goals against</p>
+              <h3>{team.statistics.goalsAgainst}</h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Goal difference</p>
+              <h3>
+                {team.statistics.goalDifference > 0 ? '+' : ''}
+                {team.statistics.goalDifference}
+              </h3>
+            </div>
+          </div>
+
+          <div className="team-directory-card">
+            <div>
+              <p className="eyebrow">Points</p>
+              <h3>{team.statistics.points}</h3>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
             <p className="eyebrow">Squad</p>
             <h2>Players</h2>
           </div>
@@ -1755,22 +1858,30 @@ function TeamDetailPage() {
           </span>
         </div>
 
-        <div className="player-list">
-          {team.players.map((player) => (
-            <div
-              className="lineup-player"
-              key={player.id}
-            >
-              <strong>
-                {player.firstName} {player.lastName}
-              </strong>
+        {team.players.length === 0 ? (
+          <div className="empty-state">
+            <h3>No players</h3>
+            <p>This team currently has no registered players.</p>
+          </div>
+        ) : (
+          <div className="player-list">
+            {team.players.map((player) => (
+              <Link
+                className="lineup-player"
+                key={player.id}
+                to={`/players/${player.id}`}
+              >
+                <strong>
+                  {player.firstName} {player.lastName}
+                </strong>
 
-              <span>
-                {player.position ?? 'Unknown position'}
-              </span>
-            </div>
-          ))}
-        </div>
+                <span>
+                  {player.position ?? 'Unknown position'}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {upcomingMatches.length > 0 && (
@@ -1780,24 +1891,88 @@ function TeamDetailPage() {
               <p className="eyebrow">Coming up</p>
               <h2>Upcoming matches</h2>
             </div>
+
+            <span className="status-badge">
+              {upcomingMatches.length} matches
+            </span>
           </div>
 
           <MatchCards matches={upcomingMatches} />
         </section>
       )}
 
-      {recentMatches.length > 0 && (
-        <section className="matches-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Completed</p>
-              <h2>Recent results</h2>
-            </div>
+      <section className="matches-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Completed</p>
+            <h2>Match history</h2>
           </div>
 
-          <MatchCards matches={recentMatches} />
-        </section>
-      )}
+          <span className="status-badge">
+            {matchHistory.length} matches
+          </span>
+        </div>
+
+        {matchHistory.length === 0 ? (
+          <div className="empty-state">
+            <h3>No finished matches</h3>
+            <p>This team has no finished matches yet.</p>
+          </div>
+        ) : (
+          <div className="match-list">
+            {matchHistory.map((match) => (
+              <Link
+                className="match-card-link"
+                key={match.matchId}
+                to={`/matches/${match.matchId}`}
+              >
+                <article className="match-card">
+                  <div className="match-meta">
+                    <div>
+                      <strong>{match.competition.name}</strong>
+                      <span>{match.season.name}</span>
+                    </div>
+
+                    <span className="status-badge">
+                      {match.result}
+                    </span>
+                  </div>
+
+                  <div className="match-content">
+                    <div className="team team-home">
+                      <strong>{match.homeTeam.name}</strong>
+                    </div>
+
+                    <div className="score">
+                      <strong>
+                        {match.homeScore} : {match.awayScore}
+                      </strong>
+
+                      <span>
+                        {new Date(match.date).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="team team-away">
+                      <strong>{match.awayTeam.name}</strong>
+                    </div>
+                  </div>
+
+                  <div className="match-meta">
+                    <span>
+                      vs {match.opponent.name}
+                    </span>
+
+                    <span>
+                      {match.venue === 'HOME' ? 'Home' : 'Away'}
+                    </span>
+                  </div>
+                </article>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   )
 }

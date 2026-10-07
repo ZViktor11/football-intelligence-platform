@@ -32,6 +32,11 @@ export class TeamsController {
     return this.teamsService.findAll();
   }
 
+  @Get(':id/matches')
+getMatchHistory(@Param('id', ParseIntPipe) id: number) {
+  return this.teamsService.getMatchHistory(id);
+}
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.teamsService.findOne(id);
