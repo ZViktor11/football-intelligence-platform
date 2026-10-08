@@ -21,6 +21,7 @@ model User {
   matchAdminAssignments MatchAdminAssignment[]
   matchReports          MatchReport[]          @relation("MatchReportAuthor")
   reviewedMatchReports  MatchReport[]          @relation("MatchReportReviewer")
+  auditLogs             AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -172,6 +173,7 @@ model Match {
   matchAdminAssignments MatchAdminAssignment[]
   squadPlayers          MatchSquadPlayer[]
   reports               MatchReport[]
+  auditLogs             AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -256,6 +258,35 @@ model MatchReport {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  action     AuditAction
+  entityType String
+  entityId   Int
+
+  before Json?
+  after  Json?
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  matchId Int?
+  match   Match? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([matchId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
 }
 
 enum Role {

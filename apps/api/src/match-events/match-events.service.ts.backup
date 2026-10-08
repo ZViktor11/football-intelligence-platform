@@ -1,4 +1,4 @@
-﻿import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { Prisma } from '../../generated/prisma/client';
 import {
   BadRequestException,
@@ -781,6 +781,10 @@ export class MatchEventsService {
 
   return event;
 });
+
+    await this.recalculateScore(data.matchId);
+
+    return event;
   }
 
   async update(
@@ -875,31 +879,14 @@ export class MatchEventsService {
       event.id,
     );
 
-    return this.prisma.$transaction(async (tx) => {
-      const updatedEvent = await tx.matchEvent.update({
-        where: { id },
-        data,
-      });
-
-      await this.recalculateScore(event.matchId, tx);
-
-      const { match: _match, ...beforeEvent } = event;
-
-      await this.auditLogsService.create(
-        {
-          action: 'UPDATE',
-          entityType: 'MATCH_EVENT',
-          entityId: id,
-          userId,
-          matchId: event.matchId,
-          before: JSON.parse(JSON.stringify(beforeEvent)),
-          after: JSON.parse(JSON.stringify(updatedEvent)),
-        },
-        tx,
-      );
-
-      return updatedEvent;
+    const updatedEvent = await this.prisma.matchEvent.update({
+      where: { id },
+      data,
     });
+
+    await this.recalculateScore(event.matchId);
+
+    return updatedEvent;
   }
 
   async remove(id: number, userId: number) {
@@ -916,27 +903,12 @@ export class MatchEventsService {
 
     await this.ensureMatchIsEditable(event.match.status, userId);
 
-    return this.prisma.$transaction(async (tx) => {
-      const deletedEvent = await tx.matchEvent.delete({
-        where: { id },
-      });
-
-      await this.recalculateScore(event.matchId, tx);
-
-      await this.auditLogsService.create(
-        {
-          action: 'DELETE',
-          entityType: 'MATCH_EVENT',
-          entityId: id,
-          userId,
-          matchId: event.matchId,
-          before: JSON.parse(JSON.stringify(deletedEvent)),
-        },
-        tx,
-      );
-
-      return deletedEvent;
+    const deletedEvent = await this.prisma.matchEvent.delete({
+      where: { id },
     });
+
+    await this.recalculateScore(event.matchId);
+
+    return deletedEvent;
   }
 }
-
