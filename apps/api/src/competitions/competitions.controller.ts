@@ -1,3 +1,4 @@
+
 import {
   Body,
   Controller,
@@ -8,9 +9,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+
 import { Role } from '../../generated/prisma/client';
 
 import { AuthGuard } from '../auth/auth.guard';
+import { CompetitionAccessGuard } from '../auth/competition-access.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 
@@ -20,13 +23,17 @@ import { UpdateCompetitionDto } from './dto/update-competition.dto';
 
 @Controller('competitions')
 export class CompetitionsController {
-  constructor(private readonly competitionsService: CompetitionsService) {}
+  constructor(
+    private readonly competitionsService: CompetitionsService,
+  ) {}
 
   @Post()
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.SYSTEM_ADMIN)
   create(@Body() createCompetitionDto: CreateCompetitionDto) {
-    return this.competitionsService.create(createCompetitionDto);
+    return this.competitionsService.create(
+      createCompetitionDto,
+    );
   }
 
   @Get()
@@ -40,12 +47,14 @@ export class CompetitionsController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(Role.SYSTEM_ADMIN)
+  @UseGuards(AuthGuard, CompetitionAccessGuard)
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCompetitionDto: UpdateCompetitionDto,
   ) {
-    return this.competitionsService.update(id, updateCompetitionDto);
+    return this.competitionsService.update(
+      id,
+      updateCompetitionDto,
+    );
   }
 }

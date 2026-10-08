@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
@@ -6,6 +7,7 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { RolesGuard } from './roles.guard';
 import { MatchAccessGuard } from './match-access.guard';
+import { CompetitionAccessGuard } from './competition-access.guard';
 
 @Module({
   imports: [
@@ -16,8 +18,21 @@ import { MatchAccessGuard } from './match-access.guard';
       },
     }),
   ],
-  providers: [AuthService, AuthGuard, RolesGuard, MatchAccessGuard],
+  providers: [
+    AuthService,
+    AuthGuard,
+    RolesGuard,
+    MatchAccessGuard,
+    CompetitionAccessGuard,
+  ],
   controllers: [AuthController],
-  exports: [AuthService, AuthGuard, RolesGuard, MatchAccessGuard, JwtModule],
+  exports: [
+    AuthService,
+    AuthGuard,
+    RolesGuard,
+    MatchAccessGuard,
+    CompetitionAccessGuard,
+    JwtModule,
+  ],
 })
 export class AuthModule {}
