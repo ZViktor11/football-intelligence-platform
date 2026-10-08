@@ -1,4 +1,15 @@
-import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
+
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
+
+import {
+  IsStandingsTieBreakers,
+  StandingsTieBreaker,
+} from '../standings-tiebreaker';
 
 export class UpdateCompetitionDto {
   @IsOptional()
@@ -13,4 +24,8 @@ export class UpdateCompetitionDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsStandingsTieBreakers()
+  standingsTieBreakers?: StandingsTieBreaker[];
 }

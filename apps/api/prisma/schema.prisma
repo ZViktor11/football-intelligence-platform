@@ -59,6 +59,8 @@ model Competition {
 
   halfDurationMinutes Int @default(45)
 
+  standingsTieBreakers Json @default("[\"POINTS\",\"GOAL_DIFFERENCE\",\"GOALS_FOR\",\"HEAD_TO_HEAD_POINTS\",\"HEAD_TO_HEAD_GOAL_DIFFERENCE\",\"HEAD_TO_HEAD_GOALS_FOR\",\"FAIR_PLAY\",\"DRAWING_OF_LOTS\"]")
+
   seasons         Season[]
   roleAssignments RoleAssignment[]
 

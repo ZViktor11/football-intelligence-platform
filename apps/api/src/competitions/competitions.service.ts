@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompetitionDto } from './dto/create-competition.dto';
@@ -13,6 +17,12 @@ export class CompetitionsService {
       data: {
         name: createCompetitionDto.name,
         description: createCompetitionDto.description,
+        ...(createCompetitionDto.standingsTieBreakers !== undefined
+          ? {
+              standingsTieBreakers:
+                createCompetitionDto.standingsTieBreakers,
+            }
+          : {}),
       },
     });
   }
@@ -53,18 +63,39 @@ export class CompetitionsService {
     });
 
     if (!competition) {
-      throw new NotFoundException(`Competition with ID ${id} not found`);
+      throw new NotFoundException(
+        `Competition with ID ${id} not found`,
+      );
     }
 
     return competition;
   }
 
-  async update(id: number, updateCompetitionDto: UpdateCompetitionDto) {
+  async update(
+    id: number,
+    updateCompetitionDto: UpdateCompetitionDto,
+  ) {
     await this.findOne(id);
 
     return this.prisma.competition.update({
       where: { id },
-      data: updateCompetitionDto,
+      data: {
+        ...(updateCompetitionDto.name !== undefined
+          ? { name: updateCompetitionDto.name }
+          : {}),
+        ...(updateCompetitionDto.description !== undefined
+          ? { description: updateCompetitionDto.description }
+          : {}),
+        ...(updateCompetitionDto.isActive !== undefined
+          ? { isActive: updateCompetitionDto.isActive }
+          : {}),
+        ...(updateCompetitionDto.standingsTieBreakers !== undefined
+          ? {
+              standingsTieBreakers:
+                updateCompetitionDto.standingsTieBreakers,
+            }
+          : {}),
+      },
     });
   }
 }

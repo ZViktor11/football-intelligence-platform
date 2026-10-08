@@ -224,52 +224,97 @@ describe('SeasonsService', () => {
     });
 
     it('should rank three tied teams using a head-to-head mini-table', async () => {
-  prismaMock.season.findUnique.mockResolvedValue({
-    id: 1,
-    teams: [
-      { id: 1, name: 'Zeta FC' },
-      { id: 2, name: 'Alpha FC' },
-      { id: 3, name: 'Beta FC' },
-      { id: 4, name: 'Outsider FC' },
-    ],
-    matches: [
-      // Head-to-head: Zeta beats Alpha and Beta.
-      { homeTeamId: 1, awayTeamId: 2, homeScore: 1, awayScore: 0 },
-      { homeTeamId: 1, awayTeamId: 3, homeScore: 1, awayScore: 0 },
-      { homeTeamId: 2, awayTeamId: 3, homeScore: 1, awayScore: 0 },
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        teams: [
+          { id: 1, name: 'Zeta FC' },
+          { id: 2, name: 'Alpha FC' },
+          { id: 3, name: 'Beta FC' },
+          { id: 4, name: 'Outsider FC' },
+        ],
+        matches: [
+          {
+            homeTeamId: 1,
+            awayTeamId: 2,
+            homeScore: 1,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 1,
+            awayTeamId: 3,
+            homeScore: 1,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 2,
+            awayTeamId: 3,
+            homeScore: 1,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 4,
+            awayTeamId: 1,
+            homeScore: 2,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 2,
+            awayTeamId: 4,
+            homeScore: 1,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 4,
+            awayTeamId: 2,
+            homeScore: 1,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 3,
+            awayTeamId: 4,
+            homeScore: 1,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 3,
+            awayTeamId: 4,
+            homeScore: 1,
+            awayScore: 0,
+          },
+        ],
+      });
 
-      // Outsider results balance the overall statistics.
-      { homeTeamId: 4, awayTeamId: 1, homeScore: 2, awayScore: 0 },
+      const result = await service.getStandings(1);
 
-      { homeTeamId: 2, awayTeamId: 4, homeScore: 1, awayScore: 0 },
-      { homeTeamId: 4, awayTeamId: 2, homeScore: 1, awayScore: 0 },
+      const zeta = result.find(
+        (team) => team.teamId === 1,
+      )!;
+      const alpha = result.find(
+        (team) => team.teamId === 2,
+      )!;
+      const beta = result.find(
+        (team) => team.teamId === 3,
+      )!;
 
-      { homeTeamId: 3, awayTeamId: 4, homeScore: 1, awayScore: 0 },
-      { homeTeamId: 3, awayTeamId: 4, homeScore: 1, awayScore: 0 },
-    ],
-  });
+      expect(zeta.points).toBe(6);
+      expect(alpha.points).toBe(6);
+      expect(beta.points).toBe(6);
 
-  const result = await service.getStandings(1);
+      expect(zeta.goalDifference).toBe(0);
+      expect(alpha.goalDifference).toBe(0);
+      expect(beta.goalDifference).toBe(0);
 
-  const zeta = result.find((team) => team.teamId === 1)!;
-  const alpha = result.find((team) => team.teamId === 2)!;
-  const beta = result.find((team) => team.teamId === 3)!;
+      expect(zeta.goalsFor).toBe(2);
+      expect(alpha.goalsFor).toBe(2);
+      expect(beta.goalsFor).toBe(2);
 
-  expect(zeta.points).toBe(6);
-  expect(alpha.points).toBe(6);
-  expect(beta.points).toBe(6);
-
-  expect(zeta.goalDifference).toBe(0);
-  expect(alpha.goalDifference).toBe(0);
-  expect(beta.goalDifference).toBe(0);
-
-  expect(zeta.goalsFor).toBe(2);
-  expect(alpha.goalsFor).toBe(2);
-  expect(beta.goalsFor).toBe(2);
-
-  expect(zeta.position).toBeLessThan(alpha.position);
-  expect(alpha.position).toBeLessThan(beta.position);
-});
+      expect(zeta.position).toBeLessThan(
+        alpha.position,
+      );
+      expect(alpha.position).toBeLessThan(
+        beta.position,
+      );
+    });
 
     it('should use head-to-head goal difference after head-to-head points', async () => {
       prismaMock.season.findUnique.mockResolvedValue({
@@ -313,6 +358,109 @@ describe('SeasonsService', () => {
       expect(result).toHaveLength(4);
       expect(result[0].position).toBe(1);
       expect(result[3].position).toBe(4);
+    });
+
+    it('should prioritize goal difference when configured before goals scored', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        competition: {
+          standingsTieBreakers: [
+            'POINTS',
+            'GOAL_DIFFERENCE',
+            'GOALS_FOR',
+          ],
+        },
+        teams: [
+          { id: 1, name: 'Team A' },
+          { id: 2, name: 'Team B' },
+          { id: 3, name: 'Team C' },
+        ],
+        matches: [
+          {
+            homeTeamId: 1,
+            awayTeamId: 3,
+            homeScore: 3,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 2,
+            awayTeamId: 3,
+            homeScore: 4,
+            awayScore: 2,
+          },
+        ],
+      });
+
+      const result = await service.getStandings(1);
+
+      expect(result.map((team) => team.teamName)).toEqual([
+        'Team A',
+        'Team B',
+        'Team C',
+      ]);
+    });
+
+    it('should prioritize goals scored when configured before goal difference', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        competition: {
+          standingsTieBreakers: [
+            'POINTS',
+            'GOALS_FOR',
+            'GOAL_DIFFERENCE',
+          ],
+        },
+        teams: [
+          { id: 1, name: 'Team A' },
+          { id: 2, name: 'Team B' },
+          { id: 3, name: 'Team C' },
+        ],
+        matches: [
+          {
+            homeTeamId: 1,
+            awayTeamId: 3,
+            homeScore: 3,
+            awayScore: 0,
+          },
+          {
+            homeTeamId: 2,
+            awayTeamId: 3,
+            homeScore: 4,
+            awayScore: 2,
+          },
+        ],
+      });
+
+      const result = await service.getStandings(1);
+
+      expect(result.map((team) => team.teamName)).toEqual([
+        'Team B',
+        'Team A',
+        'Team C',
+      ]);
+    });
+
+    it('should reject invalid standings tie-breaker configuration', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1,
+        competition: {
+          standingsTieBreakers: [
+            'GOAL_DIFFERENCE',
+            'POINTS',
+            'GOAL_DIFFERENCE',
+          ],
+        },
+        teams: [
+          { id: 1, name: 'Team A' },
+        ],
+        matches: [],
+      });
+
+      await expect(
+        service.getStandings(1),
+      ).rejects.toThrow(
+        'Invalid standings tie-breaker configuration',
+      );
     });
   });
 });

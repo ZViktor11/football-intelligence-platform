@@ -1,8 +1,17 @@
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
+import {
+  DEFAULT_STANDINGS_TIEBREAKERS,
+  isValidStandingsTieBreakers,
+  StandingsTieBreaker,
+} from '../competitions/standings-tiebreaker';
 
 type StandingEntry = {
   teamId: number;
@@ -17,20 +26,27 @@ type StandingEntry = {
   points: number;
 };
 
-type HeadToHeadEntry = {
-  teamId: number;
-  points: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-};
-
 type FinishedMatch = {
   homeTeamId: number;
   awayTeamId: number;
   homeScore: number;
   awayScore: number;
 };
+
+type HeadToHeadEntry = {
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+};
+
+type SupportedRule =
+  | StandingsTieBreaker.POINTS
+  | StandingsTieBreaker.GOAL_DIFFERENCE
+  | StandingsTieBreaker.GOALS_FOR
+  | StandingsTieBreaker.HEAD_TO_HEAD_POINTS
+  | StandingsTieBreaker.HEAD_TO_HEAD_GOAL_DIFFERENCE
+  | StandingsTieBreaker.HEAD_TO_HEAD_GOALS_FOR;
 
 @Injectable()
 export class SeasonsService {
@@ -99,34 +115,16 @@ export class SeasonsService {
     return season;
   }
 
-  private compareOverallStandings(
-    a: StandingEntry,
-    b: StandingEntry,
-  ): number {
-    if (b.points !== a.points) {
-      return b.points - a.points;
-    }
-
-    if (b.goalDifference !== a.goalDifference) {
-      return b.goalDifference - a.goalDifference;
-    }
-
-    return b.goalsFor - a.goalsFor;
-  }
-
   private calculateHeadToHead(
-    tiedTeams: StandingEntry[],
+    teams: StandingEntry[],
     matches: FinishedMatch[],
   ): Map<number, HeadToHeadEntry> {
-    const tiedTeamIds = new Set(
-      tiedTeams.map((team) => team.teamId),
-    );
+    const teamIds = new Set(teams.map((team) => team.teamId));
 
-    const miniTable = new Map<number, HeadToHeadEntry>();
+    const table = new Map<number, HeadToHeadEntry>();
 
-    for (const team of tiedTeams) {
-      miniTable.set(team.teamId, {
-        teamId: team.teamId,
+    for (const team of teams) {
+      table.set(team.teamId, {
         points: 0,
         goalsFor: 0,
         goalsAgainst: 0,
@@ -136,14 +134,14 @@ export class SeasonsService {
 
     for (const match of matches) {
       if (
-        !tiedTeamIds.has(match.homeTeamId) ||
-        !tiedTeamIds.has(match.awayTeamId)
+        !teamIds.has(match.homeTeamId) ||
+        !teamIds.has(match.awayTeamId)
       ) {
         continue;
       }
 
-      const home = miniTable.get(match.homeTeamId)!;
-      const away = miniTable.get(match.awayTeamId)!;
+      const home = table.get(match.homeTeamId)!;
+      const away = table.get(match.awayTeamId)!;
 
       home.goalsFor += match.homeScore;
       home.goalsAgainst += match.awayScore;
@@ -161,60 +159,131 @@ export class SeasonsService {
       }
     }
 
-    for (const entry of miniTable.values()) {
+    for (const entry of table.values()) {
       entry.goalDifference =
         entry.goalsFor - entry.goalsAgainst;
     }
 
-    return miniTable;
+    return table;
   }
 
-  private sortTiedTeams(
-    tiedTeams: StandingEntry[],
-    matches: FinishedMatch[],
-  ): StandingEntry[] {
-    if (tiedTeams.length <= 1) {
-      return tiedTeams;
+  private getRuleValue(
+    team: StandingEntry,
+    rule: SupportedRule,
+    headToHead: Map<number, HeadToHeadEntry> | null,
+  ): number {
+    switch (rule) {
+      case StandingsTieBreaker.POINTS:
+        return team.points;
+
+      case StandingsTieBreaker.GOAL_DIFFERENCE:
+        return team.goalDifference;
+
+      case StandingsTieBreaker.GOALS_FOR:
+        return team.goalsFor;
+
+      case StandingsTieBreaker.HEAD_TO_HEAD_POINTS:
+        return headToHead!.get(team.teamId)!.points;
+
+      case StandingsTieBreaker.HEAD_TO_HEAD_GOAL_DIFFERENCE:
+        return headToHead!.get(team.teamId)!.goalDifference;
+
+      case StandingsTieBreaker.HEAD_TO_HEAD_GOALS_FOR:
+        return headToHead!.get(team.teamId)!.goalsFor;
+    }
+  }
+
+  private sortByRules(
+  teams: StandingEntry[],
+  matches: FinishedMatch[],
+  rules: StandingsTieBreaker[],
+  ruleIndex = 0,
+): StandingEntry[] {
+  if (teams.length <= 1) {
+    return teams;
+  }
+
+  // Teams without finished matches are ordered alphabetically.
+  if (teams.every((team) => team.played === 0)) {
+    return [...teams].sort(
+      (a, b) =>
+        a.teamName.localeCompare(b.teamName) ||
+        a.teamId - b.teamId,
+    );
+  }
+
+  if (ruleIndex >= rules.length) {
+    return [...teams].sort(
+      (a, b) =>
+        a.teamName.localeCompare(b.teamName) ||
+        a.teamId - b.teamId,
+    );
+  }
+
+  const rule = rules[ruleIndex];
+
+
+
+    if (
+      rule === StandingsTieBreaker.FAIR_PLAY ||
+      rule === StandingsTieBreaker.DRAWING_OF_LOTS
+    ) {
+      throw new UnprocessableEntityException(
+        `Standings tie cannot be resolved: ${rule} is not implemented`,
+      );
     }
 
-    const miniTable = this.calculateHeadToHead(
-      tiedTeams,
-      matches,
-    );
+    const isHeadToHead =
+      rule === StandingsTieBreaker.HEAD_TO_HEAD_POINTS ||
+      rule ===
+        StandingsTieBreaker.HEAD_TO_HEAD_GOAL_DIFFERENCE ||
+      rule === StandingsTieBreaker.HEAD_TO_HEAD_GOALS_FOR;
 
-    return [...tiedTeams].sort((a, b) => {
-      const aHeadToHead = miniTable.get(a.teamId)!;
-      const bHeadToHead = miniTable.get(b.teamId)!;
+    const headToHead = isHeadToHead
+      ? this.calculateHeadToHead(teams, matches)
+      : null;
 
-      if (bHeadToHead.points !== aHeadToHead.points) {
-        return bHeadToHead.points - aHeadToHead.points;
-      }
+    const scored = teams.map((team) => ({
+      team,
+      value: this.getRuleValue(team, rule, headToHead),
+    }));
 
-      if (
-        bHeadToHead.goalDifference !==
-        aHeadToHead.goalDifference
+    scored.sort((a, b) => b.value - a.value);
+
+    const result: StandingEntry[] = [];
+
+    let index = 0;
+
+    while (index < scored.length) {
+      const value = scored[index].value;
+      const tiedTeams: StandingEntry[] = [];
+
+      while (
+        index < scored.length &&
+        scored[index].value === value
       ) {
-        return (
-          bHeadToHead.goalDifference -
-          aHeadToHead.goalDifference
-        );
+        tiedTeams.push(scored[index].team);
+        index += 1;
       }
 
-      if (bHeadToHead.goalsFor !== aHeadToHead.goalsFor) {
-        return bHeadToHead.goalsFor - aHeadToHead.goalsFor;
-      }
-
-      return (
-        a.teamName.localeCompare(b.teamName) ||
-        a.teamId - b.teamId
+      result.push(
+        ...this.sortByRules(
+          tiedTeams,
+          matches,
+          rules,
+          ruleIndex + 1,
+        ),
       );
-    });
+    }
+
+    return result;
   }
 
   async getStandings(id: number) {
     const season = await this.prisma.season.findUnique({
       where: { id },
       include: {
+        competition: true,
         teams: true,
         matches: {
           where: {
@@ -227,6 +296,20 @@ export class SeasonsService {
     if (!season) {
       throw new NotFoundException(
         `Season with ID ${id} not found`,
+      );
+    }
+
+    const configuredRules: unknown =
+      season.competition?.standingsTieBreakers;
+
+    const rules =
+      configuredRules === undefined
+        ? DEFAULT_STANDINGS_TIEBREAKERS
+        : configuredRules;
+
+    if (!isValidStandingsTieBreakers(rules)) {
+      throw new UnprocessableEntityException(
+        'Invalid standings tie-breaker configuration',
       );
     }
 
@@ -287,37 +370,11 @@ export class SeasonsService {
         entry.goalsFor - entry.goalsAgainst;
     }
 
-    standings.sort((a, b) =>
-      this.compareOverallStandings(a, b),
+    const sortedStandings = this.sortByRules(
+      standings,
+      season.matches,
+      rules,
     );
-
-    const sortedStandings: StandingEntry[] = [];
-
-    let index = 0;
-
-    while (index < standings.length) {
-      const current = standings[index];
-      const tiedTeams: StandingEntry[] = [current];
-
-      let nextIndex = index + 1;
-
-      while (
-        nextIndex < standings.length &&
-        this.compareOverallStandings(
-          current,
-          standings[nextIndex],
-        ) === 0
-      ) {
-        tiedTeams.push(standings[nextIndex]);
-        nextIndex += 1;
-      }
-
-      sortedStandings.push(
-        ...this.sortTiedTeams(tiedTeams, season.matches),
-      );
-
-      index = nextIndex;
-    }
 
     return sortedStandings.map((entry, position) => ({
       position: position + 1,

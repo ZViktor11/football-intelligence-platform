@@ -1,4 +1,14 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+
+import {
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
+
+import {
+  IsStandingsTieBreakers,
+  StandingsTieBreaker,
+} from '../standings-tiebreaker';
 
 export class CreateCompetitionDto {
   @IsString()
@@ -8,4 +18,8 @@ export class CreateCompetitionDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsStandingsTieBreakers()
+  standingsTieBreakers?: StandingsTieBreaker[];
 }
