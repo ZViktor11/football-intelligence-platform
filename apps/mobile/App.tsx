@@ -113,6 +113,7 @@ function MatchDetail({
   onBack: () => void;
 }) {
   const [match, setMatch] = useState<Match | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -146,6 +147,39 @@ function MatchDetail({
     return () => clearInterval(interval);
   }, [loadMatch]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadPlayers() {
+      try {
+        const response = await fetch(`${API_URL}/players`);
+        if (!response.ok) return;
+
+        const data: unknown = await response.json();
+        if (!active) return;
+
+        if (Array.isArray(data)) {
+          setPlayers(data as Player[]);
+        } else if (
+          data !== null &&
+          typeof data === 'object' &&
+          'value' in data &&
+          Array.isArray(data.value)
+        ) {
+          setPlayers(data.value as Player[]);
+        }
+      } catch {
+        // Match details remain usable without player lookup.
+      }
+    }
+
+    void loadPlayers();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function eventLabel(event: MatchEvent): string {
     const playerName = event.player
       ? `${event.player.firstName} ${event.player.lastName}`
@@ -158,8 +192,24 @@ function MatchDetail({
         return `Yellow card - ${playerName}`;
       case 'RED_CARD':
         return `Red card - ${playerName}`;
-      case 'SUBSTITUTION':
-        return `Substitution - Player ${event.playerOutId ?? '?'} → Player ${event.playerInId ?? '?'}`;
+      case 'SUBSTITUTION': {
+        const playerOut = players.find(
+          (player) => player.id === event.playerOutId,
+        );
+        const playerIn = players.find(
+          (player) => player.id === event.playerInId,
+        );
+
+        const outName = playerOut
+          ? `${playerOut.firstName} ${playerOut.lastName}`
+          : `Player ${event.playerOutId ?? '?'}`;
+
+        const inName = playerIn
+          ? `${playerIn.firstName} ${playerIn.lastName}`
+          : `Player ${event.playerInId ?? '?'}`;
+
+        return `Substitution - ${outName} → ${inName}`;
+      }
     }
   }
 
