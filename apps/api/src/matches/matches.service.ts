@@ -241,6 +241,13 @@ export class MatchesService {
     if (status === MatchStatus.LIVE && secondHalfStartedAt) {
       const elapsedMinutes = this.getElapsedMinutes(secondHalfStartedAt);
 
+      if (halfDurationMinutes + elapsedMinutes + 1 > 180) {
+        return {
+          matchMinute: null,
+          clockDisplay: 'Clock unavailable',
+        };
+      }
+
       const matchMinute = halfDurationMinutes + elapsedMinutes + 1;
 
       return {
@@ -254,6 +261,13 @@ export class MatchesService {
 
     if (status === MatchStatus.LIVE && actualStartedAt) {
       const elapsedMinutes = this.getElapsedMinutes(actualStartedAt);
+
+      if (elapsedMinutes + 1 > 180) {
+        return {
+          matchMinute: null,
+          clockDisplay: 'Clock unavailable',
+        };
+      }
 
       const matchMinute = elapsedMinutes + 1;
 

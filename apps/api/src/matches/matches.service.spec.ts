@@ -44,6 +44,55 @@ describe('MatchesService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('stale match clock', () => {
+    it('should mark an excessively old first-half clock unavailable', () => {
+      const startedAt = new Date(Date.now() - 181 * 60_000);
+
+      const result = service.calculateMatchClock(
+        MatchStatus.LIVE,
+        startedAt,
+        null,
+        45,
+      );
+
+      expect(result).toEqual({
+        matchMinute: null,
+        clockDisplay: 'Clock unavailable',
+      });
+    });
+
+    it('should mark an excessively old second-half clock unavailable', () => {
+      const secondHalfStartedAt = new Date(Date.now() - 136 * 60_000);
+
+      const result = service.calculateMatchClock(
+        MatchStatus.LIVE,
+        new Date(Date.now() - 200 * 60_000),
+        secondHalfStartedAt,
+        45,
+      );
+
+      expect(result).toEqual({
+        matchMinute: null,
+        clockDisplay: 'Clock unavailable',
+      });
+    });
+
+    it('should preserve normal stoppage-time display', () => {
+      const startedAt = new Date(Date.now() - 46 * 60_000);
+
+      const result = service.calculateMatchClock(
+        MatchStatus.LIVE,
+        startedAt,
+        null,
+        45,
+      );
+
+      expect(result).toEqual({
+        matchMinute: 47,
+        clockDisplay: "45+2'",
+      });
+    });
+  });
   describe('match clock', () => {
     it("should display 1' at first-half kickoff", () => {
       const now = new Date('2026-09-21T16:00:00.000Z');
