@@ -1,7 +1,8 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -18,8 +19,26 @@ type MatchStatus =
   | 'HALF_TIME'
   | 'FINISHED';
 
+type Player = {
+  id: number;
+  firstName: string;
+  lastName: string;
+};
+
+type MatchEvent = {
+  id: number;
+  type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
+  minute: number | null;
+  teamId: number | null;
+  player: Player | null;
+  playerOutId: number | null;
+  playerInId: number | null;
+  isOwnGoal: boolean;
+};
+
 type Match = {
   id: number;
+  events?: MatchEvent[];
   date: string;
   status: MatchStatus;
   homeScore: number;
@@ -86,8 +105,139 @@ function MatchCard({ match }: { match: Match }) {
   );
 }
 
+function MatchDetail({
+  matchId,
+  onBack,
+}: {
+  matchId: number;
+  onBack: () => void;
+}) {
+  const [match, setMatch] = useState<Match | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMatch = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/matches/${matchId}`);
+
+      if (!response.ok) {
+        throw new Error(`API returned HTTP ${response.status}`);
+      }
+
+      const data: Match = await response.json();
+      setMatch(data);
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not load match',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [matchId]);
+
+  useEffect(() => {
+    void loadMatch();
+
+    const interval = setInterval(() => {
+      void loadMatch();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [loadMatch]);
+
+  function eventLabel(event: MatchEvent): string {
+    const playerName = event.player
+      ? `${event.player.firstName} ${event.player.lastName}`
+      : 'Unknown player';
+
+    switch (event.type) {
+      case 'GOAL':
+        return `${event.isOwnGoal ? 'Own goal' : 'Goal'} - ${playerName}`;
+      case 'YELLOW_CARD':
+        return `Yellow card - ${playerName}`;
+      case 'RED_CARD':
+        return `Red card - ${playerName}`;
+      case 'SUBSTITUTION':
+        return `Substitution - Player ${event.playerOutId ?? '?'} → Player ${event.playerInId ?? '?'}`;
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+
+      <View style={styles.header}>
+        <Pressable onPress={onBack}>
+          <Text style={styles.backButton}>← Back to matches</Text>
+        </Pressable>
+        <Text style={styles.title}>Match details</Text>
+      </View>
+
+      {loading && !match ? (
+        <View style={styles.center}>
+          <ActivityIndicator color="#38bdf8" size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={[...(match?.events ?? [])].sort(
+            (a, b) => (a.minute ?? 0) - (b.minute ?? 0),
+          )}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.list}
+          refreshing={false}
+          onRefresh={() => void loadMatch()}
+          ListHeaderComponent={
+            <>
+              {error && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              {match && (
+                <View style={styles.card}>
+                  <Text style={styles.competition}>
+                    {match.season?.competition?.name ?? 'Football'}
+                  </Text>
+                  <Text style={styles.detailTeams}>
+                    {match.homeTeam.name} vs {match.awayTeam.name}
+                  </Text>
+                  <Text style={styles.detailScore}>
+                    {match.homeScore} – {match.awayScore}
+                  </Text>
+                  <Text style={styles.status}>
+                    {statusLabel(match.status)}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.sectionTitle}>Match events</Text>
+            </>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.eventRow}>
+              <Text style={styles.eventMinute}>
+                {item.minute ?? '–'}′
+              </Text>
+              <Text style={styles.eventText}>
+                {eventLabel(item)}
+              </Text>
+            </View>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.helper}>
+              No events recorded.
+            </Text>
+          }
+        />
+      )}
+    </SafeAreaView>
+  );
+}
 export default function App() {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +280,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [loadMatches]);
 
+  if (selectedMatchId !== null) {
+    return (
+      <MatchDetail
+        matchId={selectedMatchId}
+        onBack={() => setSelectedMatchId(null)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
@@ -149,7 +308,11 @@ export default function App() {
         <FlatList
           data={matches}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <MatchCard match={item} />}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => setSelectedMatchId(item.id)}>
+              <MatchCard match={item} />
+            </Pressable>
+          )}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
@@ -175,6 +338,46 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    color: '#38bdf8',
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  detailTeams: {
+    color: '#f8fafc',
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  detailScore: {
+    color: '#ffffff',
+    fontSize: 42,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginVertical: 18,
+  },
+  sectionTitle: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    backgroundColor: '#17243a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  eventMinute: {
+    color: '#38bdf8',
+    fontWeight: '700',
+    width: 48,
+  },
+  eventText: {
+    color: '#f8fafc',
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#0b1220',
