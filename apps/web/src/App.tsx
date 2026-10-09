@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
+import AdminMatchesPage from './AdminMatchesPage'
 import AdminMatchPage from './AdminMatchPage'
 import AdminCreateMatchPage from './AdminCreateMatchPage'
 import './App.css'
@@ -2033,6 +2034,9 @@ function App() {
         />
 
         <Route
+          path="/admin/matches"
+          element={<AdminMatchesPage />}
+        />        <Route
           path="/admin/matches/new"
           element={<AdminCreateMatchPage />}
         />

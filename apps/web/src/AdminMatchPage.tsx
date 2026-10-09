@@ -2005,7 +2005,7 @@ const awayPlayers = players.filter(
 
     <main className="main">
 
-      <Link className="back-link" to="/">
+      <Link className="back-link" to="/admin/matches">
 
         Back to matches
 

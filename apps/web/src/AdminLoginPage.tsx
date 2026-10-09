@@ -47,7 +47,7 @@ function AdminLoginPage() {
 
       localStorage.setItem('accessToken', data.accessToken)
 
-      navigate('/admin/matches/9')
+      navigate('/admin/matches')
     } catch (err) {
       setError(
         err instanceof Error
