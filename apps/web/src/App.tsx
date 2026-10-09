@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
 import AdminMatchPage from './AdminMatchPage'
@@ -327,6 +327,8 @@ function MatchListPage() {
     )
 
   useEffect(() => {
+    let cancelled = false
+
     async function loadMatches() {
       try {
         const response = await fetch('http://localhost:3000/matches')
@@ -336,17 +338,34 @@ function MatchListPage() {
         }
 
         const data: Match[] = await response.json()
-        setMatches(data)
+
+        if (!cancelled) {
+          setMatches(data)
+          setError(null)
+        }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Could not load matches',
-        )
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Could not load matches',
+          )
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
     void loadMatches()
+
+    const intervalId = setInterval(() => {
+      void loadMatches()
+    }, 15000)
+
+    return () => {
+      cancelled = true
+      clearInterval(intervalId)
+    }
   }, [])
 
   return (
@@ -1767,7 +1786,7 @@ function TeamDetailPage() {
         <h1>{team.name}</h1>
 
         <p className="hero-description">
-          {team.city && `${team.city} · `}
+          {team.city && `${team.city} Â· `}
           {team.season.name}
         </p>
       </section>
