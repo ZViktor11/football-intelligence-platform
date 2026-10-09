@@ -2036,7 +2036,8 @@ function App() {
         <Route
           path="/admin/matches"
           element={<AdminMatchesPage />}
-        />        <Route
+        />
+        <Route
           path="/admin/matches/new"
           element={<AdminCreateMatchPage />}
         />
