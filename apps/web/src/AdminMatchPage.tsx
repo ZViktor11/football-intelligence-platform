@@ -1600,13 +1600,7 @@ const awayPlayers = players.filter(
 
 
 
-    if (substitutionMinute === '') {
-
-      setError('Enter the substitution minute.')
-
-      return
-
-    }
+    
 
 
 
@@ -1648,7 +1642,7 @@ const awayPlayers = players.filter(
 
             playerInId: Number(playerInId),
 
-            minute: Number(substitutionMinute),
+            ...(substitutionMinute !== '' ? { minute: Number(substitutionMinute) } : {}),
 
           }),
 
@@ -3007,9 +3001,7 @@ const awayPlayers = players.filter(
 
                     playerOutId === '' ||
 
-                    playerInId === '' ||
-
-                    substitutionMinute === ''
+                    playerInId === '' 
 
                   }
 
