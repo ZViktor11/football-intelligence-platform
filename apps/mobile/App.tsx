@@ -242,6 +242,13 @@ function MatchDetail({
               {error && (
                 <View style={styles.errorBox}>
                   <Text style={styles.errorText}>{error}</Text>
+                  <Pressable
+                    onPress={() => void loadMatch()}
+                    accessibilityRole="button"
+                    style={styles.retryButton}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </Pressable>
                 </View>
               )}
 
@@ -372,12 +379,21 @@ export default function App() {
             />
           }
           ListEmptyComponent={
-            <Text style={styles.helper}>No matches available.</Text>
+            error ? null : (
+              <Text style={styles.helper}>No matches available.</Text>
+            )
           }
           ListHeaderComponent={
             error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
+                <Pressable
+                  onPress={() => void loadMatches(true)}
+                  accessibilityRole="button"
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </Pressable>
               </View>
             ) : null
           }
@@ -531,5 +547,17 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#fecaca',
+  },
+  retryButton: {
+    backgroundColor: '#38bdf8',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+  },
+  retryButtonText: {
+    color: '#0b1220',
+    fontWeight: '700',
   },
 });
