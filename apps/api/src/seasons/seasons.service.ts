@@ -228,8 +228,10 @@ export class SeasonsService {
       rule === StandingsTieBreaker.FAIR_PLAY ||
       rule === StandingsTieBreaker.DRAWING_OF_LOTS
     ) {
-      throw new UnprocessableEntityException(
-        `Standings tie cannot be resolved: ${rule} is not implemented`,
+      return [...teams].sort(
+        (a, b) =>
+          a.teamName.localeCompare(b.teamName) ||
+          a.teamId - b.teamId,
       );
     }
 
