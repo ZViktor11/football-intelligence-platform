@@ -272,16 +272,46 @@ function MatchDetail({
               <Text style={styles.sectionTitle}>Match events</Text>
             </>
           }
-          renderItem={({ item }) => (
-            <View style={styles.eventRow}>
-              <Text style={styles.eventMinute}>
-                {item.minute ?? '–'}′
-              </Text>
-              <Text style={styles.eventText}>
-                {eventLabel(item)}
-              </Text>
-            </View>
-          )}
+          renderItem={({ item }) => {
+            const isHome = item.teamId === match?.homeTeam.id;
+            const isAway = item.teamId === match?.awayTeam.id;
+
+            const teamLabel = isHome
+              ? `${match?.homeTeam.name} · HOME`
+              : isAway
+                ? `${match?.awayTeam.name} · AWAY`
+                : 'Team not specified';
+
+            return (
+              <View style={styles.eventRow}>
+                <Text style={styles.eventMinute}>
+                  {item.minute ?? '–'}′
+                </Text>
+                <View style={styles.eventContent}>
+                  <View style={styles.eventTitleRow}>
+                    <View
+                      style={[
+                        styles.eventIndicator,
+                        item.type === 'GOAL'
+                          ? styles.goalIndicator
+                          : item.type === 'YELLOW_CARD'
+                            ? styles.yellowIndicator
+                            : item.type === 'RED_CARD'
+                              ? styles.redIndicator
+                              : styles.substitutionIndicator,
+                      ]}
+                    />
+                    <Text style={styles.eventText}>
+                      {eventLabel(item)}
+                    </Text>
+                  </View>
+                  <Text style={styles.eventTeam}>
+                    {teamLabel}
+                  </Text>
+                </View>
+              </View>
+            );
+          }}
           ListEmptyComponent={
             <Text style={styles.helper}>
               No events recorded.
@@ -443,6 +473,36 @@ const styles = StyleSheet.create({
   eventText: {
     color: '#f8fafc',
     flex: 1,
+  },
+  eventContent: {
+    flex: 1,
+  },
+  eventTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  eventIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+  },
+  goalIndicator: {
+    backgroundColor: '#4ade80',
+  },
+  yellowIndicator: {
+    backgroundColor: '#facc15',
+  },
+  redIndicator: {
+    backgroundColor: '#f87171',
+  },
+  substitutionIndicator: {
+    backgroundColor: '#38bdf8',
+  },
+  eventTeam: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 6,
   },
   container: {
     flex: 1,
