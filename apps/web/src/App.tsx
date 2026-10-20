@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
 import AdminMatchesPage from './AdminMatchesPage'
@@ -924,225 +924,129 @@ function MatchDetailPage() {
   )
 }
 
-function CompetitionsPage() {
-  const [competitions, setCompetitions] = useState<
-    CompetitionWithSeasons[]
-  >([])
-  const [selectedSeasonId, setSelectedSeasonId] =
-    useState<number | null>(null)
+function CompetitionStandings({ competition }: { competition: CompetitionWithSeasons }) {
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(
+    competition.seasons[0]?.id ?? null,
+  )
   const [standings, setStandings] = useState<Standing[]>([])
-  const [loading, setLoading] = useState(true)
-  const [standingsLoading, setStandingsLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function loadCompetitions() {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const response = await fetch(
-          'http://localhost:3000/competitions',
-        )
-
-        if (!response.ok) {
-          throw new Error(
-            `API request failed: ${response.status}`,
-          )
-        }
-
-        const data: CompetitionWithSeasons[] =
-          await response.json()
-
-        setCompetitions(data)
-
-        const firstSeason = data
-          .flatMap((competition) => competition.seasons)
-          .at(0)
-
-        if (firstSeason) {
-          setSelectedSeasonId(firstSeason.id)
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Could not load competitions',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void loadCompetitions()
-  }, [])
-
-  useEffect(() => {
-    if (selectedSeasonId === null) {
-      return
-    }
-
+    if (selectedSeasonId === null) return
+    let cancelled = false
     async function loadStandings() {
+      setLoading(true)
+      setError(null)
       try {
-        setStandingsLoading(true)
-        setError(null)
-
         const response = await fetch(
           `http://localhost:3000/seasons/${selectedSeasonId}/standings`,
         )
-
-        if (!response.ok) {
-          throw new Error(
-            `Standings request failed: ${response.status}`,
-          )
-        }
-
+        if (!response.ok) throw new Error(`Standings request failed: ${response.status}`)
         const data: Standing[] = await response.json()
-        setStandings(data)
+        if (!cancelled) setStandings(data)
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Could not load standings',
-        )
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load standings')
       } finally {
-        setStandingsLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
-
     void loadStandings()
+    return () => { cancelled = true }
   }, [selectedSeasonId])
+
+  return (
+    <section className="matches-section">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Competition</p>
+          <h2>{competition.name}</h2>
+          {competition.description && <p>{competition.description}</p>}
+        </div>
+      </div>
+      {competition.seasons.length > 0 ? (
+        <>
+          <label htmlFor={`season-${competition.id}`}>Season</label>
+          <select
+            id={`season-${competition.id}`}
+            value={selectedSeasonId ?? ''}
+            onChange={(event) => setSelectedSeasonId(Number(event.target.value))}
+          >
+            {competition.seasons.map((season) => (
+              <option key={season.id} value={season.id}>{season.name}</option>
+            ))}
+          </select>
+          <div className="section-heading">
+            <div><p className="eyebrow">Season table</p><h2>Standings</h2></div>
+          </div>
+          {loading ? (
+            <div className="empty-state"><h3>Loading standings...</h3></div>
+          ) : error ? (
+            <div className="empty-state"><h3>Could not load standings</h3><p>{error}</p></div>
+          ) : (
+            <div className="standings-wrapper">
+              <table className="standings-table">
+                <thead><tr>
+                  <th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th>
+                  <th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th>
+                </tr></thead>
+                <tbody>
+                  {standings.map((entry) => (
+                    <tr key={entry.teamId}>
+                      <td>{entry.position}</td>
+                      <td><Link to={`/teams/${entry.teamId}`}><strong>{entry.teamName}</strong></Link></td>
+                      <td>{entry.played}</td><td>{entry.won}</td>
+                      <td>{entry.drawn}</td><td>{entry.lost}</td>
+                      <td>{entry.goalsFor}</td><td>{entry.goalsAgainst}</td>
+                      <td>{entry.goalDifference}</td><td><strong>{entry.points}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {standings.length === 0 && <p>No standings available.</p>}
+            </div>
+          )}
+        </>
+      ) : <p>No seasons available.</p>}
+    </section>
+  )
+}
+
+function CompetitionsPage() {
+  const [competitions, setCompetitions] = useState<CompetitionWithSeasons[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadCompetitions() {
+      try {
+        const response = await fetch('http://localhost:3000/competitions')
+        if (!response.ok) throw new Error(`API request failed: ${response.status}`)
+        const data: CompetitionWithSeasons[] = await response.json()
+        if (!cancelled) setCompetitions(data)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load competitions')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void loadCompetitions()
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <main className="main">
       <section className="hero">
         <p className="eyebrow">Competitions</p>
         <h1>Competitions & standings</h1>
-
-        <p className="hero-description">
-          Follow league tables, seasons and competition
-          results.
-        </p>
+        <p className="hero-description">Follow league tables, seasons and competition results.</p>
       </section>
-
-      {loading && (
-        <section className="matches-section">
-          <div className="empty-state">
-            <h3>Loading competitions...</h3>
-          </div>
-        </section>
-      )}
-
-      {error && (
-        <section className="matches-section">
-          <div className="empty-state">
-            <h3>Could not load competition data</h3>
-            <p>{error}</p>
-          </div>
-        </section>
-      )}
-
-      {!loading &&
-        competitions.map((competition) => (
-          <section
-            className="matches-section"
-            key={competition.id}
-          >
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Competition</p>
-                <h2>{competition.name}</h2>
-
-                {competition.description && (
-                  <p>{competition.description}</p>
-                )}
-              </div>
-            </div>
-
-            {competition.seasons.length > 0 && (
-              <div>
-                <label htmlFor={`season-${competition.id}`}>
-                  Season
-                </label>
-
-                <select
-                  id={`season-${competition.id}`}
-                  value={selectedSeasonId ?? ''}
-                  onChange={(event) =>
-                    setSelectedSeasonId(
-                      Number(event.target.value),
-                    )
-                  }
-                >
-                  {competition.seasons.map((season) => (
-                    <option
-                      key={season.id}
-                      value={season.id}
-                    >
-                      {season.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Season table</p>
-                <h2>Standings</h2>
-              </div>
-            </div>
-
-            {standingsLoading ? (
-              <div className="empty-state">
-                <h3>Loading standings...</h3>
-              </div>
-            ) : (
-              <div className="standings-wrapper">
-                <table className="standings-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Team</th>
-                      <th>P</th>
-                      <th>W</th>
-                      <th>D</th>
-                      <th>L</th>
-                      <th>GF</th>
-                      <th>GA</th>
-                      <th>GD</th>
-                      <th>Pts</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {standings.map((entry) => (
-                      <tr key={entry.teamId}>
-                        <td>{entry.position}</td>
-                        <td>
-                          <Link to={`/teams/${entry.teamId}`}>
-                            <strong>{entry.teamName}</strong>
-                          </Link>
-                        </td>
-                        <td>{entry.played}</td>
-                        <td>{entry.won}</td>
-                        <td>{entry.drawn}</td>
-                        <td>{entry.lost}</td>
-                        <td>{entry.goalsFor}</td>
-                        <td>{entry.goalsAgainst}</td>
-                        <td>{entry.goalDifference}</td>
-                        <td>
-                          <strong>{entry.points}</strong>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        ))}
+      {loading && <section className="matches-section"><div className="empty-state"><h3>Loading competitions...</h3></div></section>}
+      {error && <section className="matches-section"><div className="empty-state"><h3>Could not load competition data</h3><p>{error}</p></div></section>}
+      {!loading && !error && competitions.map((competition) => (
+        <CompetitionStandings key={competition.id} competition={competition} />
+      ))}
     </main>
   )
 }
@@ -1787,7 +1691,7 @@ function TeamDetailPage() {
         <h1>{team.name}</h1>
 
         <p className="hero-description">
-          {team.city && `${team.city} Â· `}
+          {team.city && `${team.city} Ă‚Â· `}
           {team.season.name}
         </p>
       </section>
