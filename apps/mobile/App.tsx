@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { API_URL } from './src/config';
+import { RecordGoal } from './src/RecordGoal';
 import { LoginScreen } from './src/LoginScreen';
 import type { LoginResponse } from './src/auth';
 
@@ -25,6 +26,7 @@ type Player = {
   id: number;
   firstName: string;
   lastName: string;
+  teamId?: number | null;
 };
 
 type MatchEvent = {
@@ -110,9 +112,11 @@ function MatchCard({ match }: { match: Match }) {
 function MatchDetail({
   matchId,
   onBack,
+  token,
 }: {
   matchId: number;
   onBack: () => void;
+  token: string | null;
 }) {
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -271,6 +275,20 @@ function MatchDetail({
                 </View>
               )}
 
+              {match &&
+                token &&
+                (match.status === 'LIVE' ||
+                  match.status === 'HALF_TIME') && (
+                  <RecordGoal
+                    matchId={match.id}
+                    homeTeam={match.homeTeam}
+                    awayTeam={match.awayTeam}
+                    players={players}
+                    token={token}
+                    onSaved={loadMatch}
+                  />
+                )}
+
               <Text style={styles.sectionTitle}>Match events</Text>
             </>
           }
@@ -387,6 +405,7 @@ export default function App() {
     return (
       <MatchDetail
         matchId={selectedMatchId}
+        token={session?.accessToken ?? null}
         onBack={() => setSelectedMatchId(null)}
       />
     );
