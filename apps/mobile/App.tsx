@@ -12,6 +12,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { API_URL } from './src/config';
 import { RecordGoal } from './src/RecordGoal';
+import { RecordCard } from './src/RecordCard';
 import { LoginScreen } from './src/LoginScreen';
 import type { LoginResponse } from './src/auth';
 
@@ -280,6 +281,20 @@ function MatchDetail({
                 (match.status === 'LIVE' ||
                   match.status === 'HALF_TIME') && (
                   <RecordGoal
+                    matchId={match.id}
+                    homeTeam={match.homeTeam}
+                    awayTeam={match.awayTeam}
+                    players={players}
+                    token={token}
+                    onSaved={loadMatch}
+                  />
+                )}
+
+              {match &&
+                token &&
+                (match.status === 'LIVE' ||
+                  match.status === 'HALF_TIME') && (
+                  <RecordCard
                     matchId={match.id}
                     homeTeam={match.homeTeam}
                     awayTeam={match.awayTeam}
