@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { API_URL } from './src/config';
+import { LoginScreen } from './src/LoginScreen';
+import type { LoginResponse } from './src/auth';
 
 type MatchStatus =
   | 'SCHEDULED'
@@ -325,6 +327,8 @@ function MatchDetail({
 export default function App() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [session, setSession] = useState<LoginResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -367,6 +371,18 @@ export default function App() {
     return () => clearInterval(interval);
   }, [loadMatches]);
 
+  if (showLogin) {
+    return (
+      <LoginScreen
+        onLogin={(newSession) => {
+          setSession(newSession);
+          setShowLogin(false);
+        }}
+        onCancel={() => setShowLogin(false)}
+      />
+    );
+  }
+
   if (selectedMatchId !== null) {
     return (
       <MatchDetail
@@ -384,6 +400,28 @@ export default function App() {
         <Text style={styles.eyebrow}>FOOTBALL INTELLIGENCE</Text>
         <Text style={styles.title}>Matches</Text>
         <Text style={styles.subtitle}>Live scores and fixtures</Text>
+        {session ? (
+          <View style={styles.accountRow}>
+            <Text style={styles.accountText}>
+              Signed in: {session.user.email}
+            </Text>
+            <Pressable
+              onPress={() => setSession(null)}
+              accessibilityRole="button"
+              style={styles.accountButton}
+            >
+              <Text style={styles.accountButtonText}>Sign out</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setShowLogin(true)}
+            accessibilityRole="button"
+            style={styles.accountButton}
+          >
+            <Text style={styles.accountButtonText}>Admin login</Text>
+          </Pressable>
+        )}
       </View>
 
       {loading ? (
@@ -434,6 +472,28 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  accountRow: {
+    gap: 8,
+    marginTop: 12,
+  },
+  accountText: {
+    color: '#cbd5e1',
+    fontSize: 13,
+  },
+  accountButton: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  accountButtonText: {
+    color: '#38bdf8',
+    fontWeight: '700',
+  },
   backButton: {
     color: '#38bdf8',
     fontSize: 15,
