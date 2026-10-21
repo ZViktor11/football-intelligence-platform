@@ -518,7 +518,7 @@ function MatchDetailPage() {
         setEvents(eventsData)
         setSquad(squadData)
 
-        if (matchData.status === 'LIVE') {
+        if (matchData.status === 'LIVE' || matchData.status === 'HALF_TIME') {
           intervalId = setInterval(() => {
             void refreshLiveData()
           }, 15000)
@@ -557,7 +557,7 @@ function MatchDetailPage() {
         setMatch(matchData)
         setEvents(eventsData)
 
-        if (matchData.status !== 'LIVE' && intervalId) {
+        if (matchData.status !== 'LIVE' && matchData.status !== 'HALF_TIME' && intervalId) {
           clearInterval(intervalId)
           intervalId = undefined
         }
@@ -1966,3 +1966,4 @@ function App() {
 }
 
 export default App
+
