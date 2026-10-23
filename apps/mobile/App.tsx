@@ -14,6 +14,7 @@ import { API_URL } from './src/config';
 import { RecordGoal } from './src/RecordGoal';
 import { RecordCard } from './src/RecordCard';
 import { RecordSubstitution } from './src/RecordSubstitution';
+import MatchSquadEditor from './src/MatchSquadEditor';
 import { LoginScreen } from './src/LoginScreen';
 import type { LoginResponse } from './src/auth';
 
@@ -47,6 +48,7 @@ type Match = {
   events?: MatchEvent[];
   date: string;
   status: MatchStatus;
+  matchMinute?: number | null;
   homeScore: number;
   awayScore: number;
   homeTeam: { id: number; name: string };
@@ -260,6 +262,17 @@ function MatchDetail({
                 </View>
               )}
 
+              {match &&
+                token &&
+                match.status === 'PRE_MATCH' && (
+                  <MatchSquadEditor
+                    matchId={match.id}
+                    homeTeamId={match.homeTeam.id}
+                    awayTeamId={match.awayTeam.id}
+                    token={token}
+                    onChanged={loadMatch}
+                  />
+                )}
               {match && (
                 <View style={styles.card}>
                   <Text style={styles.competition}>
@@ -282,13 +295,14 @@ function MatchDetail({
                 (match.status === 'LIVE' ||
                   match.status === 'HALF_TIME') && (
                   <RecordGoal
-                    matchId={match.id}
-                    homeTeam={match.homeTeam}
-                    awayTeam={match.awayTeam}
-                    players={players}
-                    token={token}
-                    onSaved={loadMatch}
-                  />
+  matchId={match.id}
+  currentMinute={match.matchMinute ?? null}
+  homeTeam={match.homeTeam}
+  awayTeam={match.awayTeam}
+  players={players}
+  token={token}
+  onSaved={loadMatch}
+/>
                 )}
 
               {match &&
@@ -296,13 +310,14 @@ function MatchDetail({
                 (match.status === 'LIVE' ||
                   match.status === 'HALF_TIME') && (
                   <RecordCard
-                    matchId={match.id}
-                    homeTeam={match.homeTeam}
-                    awayTeam={match.awayTeam}
-                    players={players}
-                    token={token}
-                    onSaved={loadMatch}
-                  />
+  matchId={match.id}
+  currentMinute={match.matchMinute ?? null}
+  homeTeam={match.homeTeam}
+  awayTeam={match.awayTeam}
+  players={players}
+  token={token}
+  onSaved={loadMatch}
+/>
                 )}
 
               {match &&
@@ -311,6 +326,7 @@ function MatchDetail({
                   match.status === 'HALF_TIME') && (
                   <RecordSubstitution
                     matchId={match.id}
+                    currentMinute={match.matchMinute ?? null}
                     homeTeam={match.homeTeam}
                     awayTeam={match.awayTeam}
                     events={match.events ?? []}
@@ -335,7 +351,7 @@ function MatchDetail({
             return (
               <View style={styles.eventRow}>
                 <Text style={styles.eventMinute}>
-                  {item.minute ?? '–'}′
+                  {item.minute ?? '–'}�?
                 </Text>
                 <View style={styles.eventContent}>
                   <View style={styles.eventTitleRow}>

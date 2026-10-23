@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -40,6 +42,7 @@ type SubstitutionEvent = {
 
 type Props = {
   matchId: number;
+  currentMinute: number | null;
   homeTeam: Team;
   awayTeam: Team;
   events: SubstitutionEvent[];
@@ -49,6 +52,7 @@ type Props = {
 
 export function RecordSubstitution({
   matchId,
+  currentMinute,
   homeTeam,
   awayTeam,
   events,
@@ -59,10 +63,26 @@ export function RecordSubstitution({
   const [teamId, setTeamId] = useState(homeTeam.id);
   const [playerOutId, setPlayerOutId] = useState<number | null>(null);
   const [playerInId, setPlayerInId] = useState<number | null>(null);
+  const [minute, setMinute] = useState(
+    currentMinute !== null ? String(currentMinute) : '',
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const minuteEdited = useRef(false);
+
+  useEffect(() => {
+    minuteEdited.current = false;
+    setMinute(currentMinute !== null ? String(currentMinute) : '');
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!minuteEdited.current) {
+      setMinute(currentMinute !== null ? String(currentMinute) : '');
+    }
+  }, [currentMinute]);
 
   useEffect(() => {
     let active = true;
@@ -158,11 +178,32 @@ export function RecordSubstitution({
     setSuccess(null);
   }
 
+  function handleMinuteChange(value: string) {
+    minuteEdited.current = true;
+    setMinute(value);
+    setError(null);
+    setSuccess(null);
+  }
+
   async function handleSave() {
     if (saving) return;
 
     if (playerOutId === null || playerInId === null) {
       setError('Select both players.');
+      return;
+    }
+
+    const trimmedMinute = minute.trim();
+    const parsedMinute = Number(trimmedMinute);
+
+    if (
+      trimmedMinute === '' ||
+      !Number.isInteger(parsedMinute) ||
+      parsedMinute < 0 ||
+      parsedMinute > 120
+    ) {
+      setError('Enter a valid minute between 0 and 120.');
+      setSuccess(null);
       return;
     }
 
@@ -177,13 +218,15 @@ export function RecordSubstitution({
         teamId,
         playerOutId,
         playerInId,
+        minute: parsedMinute,
       });
 
       setPlayerOutId(null);
       setPlayerInId(null);
+      minuteEdited.current = false;
 
-      setSuccess('Substitution recorded successfully.');
       await onSaved();
+      setSuccess('Substitution recorded successfully.');
     } catch (err) {
       setError(
         err instanceof Error
@@ -233,6 +276,25 @@ export function RecordSubstitution({
     <View style={styles.container}>
       <Text style={styles.title}>Record substitution</Text>
 
+      <Text style={styles.label}>Match minute</Text>
+
+      <TextInput
+        style={styles.minuteInput}
+        value={minute}
+        onChangeText={handleMinuteChange}
+        keyboardType="number-pad"
+        placeholder="Enter minute (0-120)"
+        placeholderTextColor="#94a3b8"
+        maxLength={3}
+        editable={!saving}
+        selectTextOnFocus
+      />
+
+      <Text style={styles.helper}>
+        Current match minute is suggested automatically.
+        You can change it for an earlier event.
+      </Text>
+
       <Text style={styles.label}>Team</Text>
       <View style={styles.row}>
         {[homeTeam, awayTeam].map((team) => (
@@ -274,7 +336,10 @@ export function RecordSubstitution({
         </>
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : null}
+
       {success ? (
         <Text style={styles.success}>{success}</Text>
       ) : null}
@@ -326,6 +391,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
   },
+  minuteInput: {
+    backgroundColor: '#0f172a',
+    borderColor: '#475569',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -347,6 +423,7 @@ const styles = StyleSheet.create({
   },
   helper: {
     color: '#94a3b8',
+    fontSize: 12,
   },
   saveButton: {
     backgroundColor: '#38bdf8',

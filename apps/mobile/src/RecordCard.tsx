@@ -1,9 +1,11 @@
-import { useState } from 'react';
+
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -25,6 +27,7 @@ type CardType = 'YELLOW_CARD' | 'RED_CARD';
 
 type RecordCardProps = {
   matchId: number;
+  currentMinute: number | null;
   homeTeam: Team;
   awayTeam: Team;
   players: Player[];
@@ -34,6 +37,7 @@ type RecordCardProps = {
 
 export function RecordCard({
   matchId,
+  currentMinute,
   homeTeam,
   awayTeam,
   players,
@@ -43,9 +47,25 @@ export function RecordCard({
   const [teamId, setTeamId] = useState(homeTeam.id);
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [cardType, setCardType] = useState<CardType>('YELLOW_CARD');
+  const [minute, setMinute] = useState(
+    currentMinute !== null ? String(currentMinute) : '',
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const minuteEdited = useRef(false);
+
+  useEffect(() => {
+    minuteEdited.current = false;
+    setMinute(currentMinute !== null ? String(currentMinute) : '');
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!minuteEdited.current) {
+      setMinute(currentMinute !== null ? String(currentMinute) : '');
+    }
+  }, [currentMinute]);
 
   const teamPlayers = players.filter(
     (player) => player.teamId === teamId,
@@ -58,11 +78,32 @@ export function RecordCard({
     setSuccess(null);
   }
 
+  function handleMinuteChange(value: string) {
+    minuteEdited.current = true;
+    setMinute(value);
+    setError(null);
+    setSuccess(null);
+  }
+
   async function handleSave() {
     if (saving) return;
 
     if (playerId === null) {
       setError('Please select a player.');
+      return;
+    }
+
+    const trimmedMinute = minute.trim();
+    const parsedMinute = Number(trimmedMinute);
+
+    if (
+      trimmedMinute === '' ||
+      !Number.isInteger(parsedMinute) ||
+      parsedMinute < 0 ||
+      parsedMinute > 120
+    ) {
+      setError('Enter a valid minute between 0 and 120.');
+      setSuccess(null);
       return;
     }
 
@@ -76,9 +117,11 @@ export function RecordCard({
         matchId,
         teamId,
         playerId,
+        minute: parsedMinute,
       });
 
       setPlayerId(null);
+      minuteEdited.current = false;
       await onSaved();
       setSuccess('Card recorded successfully.');
     } catch (err) {
@@ -96,10 +139,34 @@ export function RecordCard({
     <View style={styles.container}>
       <Text style={styles.title}>Record card</Text>
 
+      <Text style={styles.label}>Match minute</Text>
+
+      <TextInput
+        style={styles.minuteInput}
+        value={minute}
+        onChangeText={handleMinuteChange}
+        keyboardType="number-pad"
+        placeholder="Enter minute (0-120)"
+        placeholderTextColor="#94a3b8"
+        maxLength={3}
+        editable={!saving}
+        selectTextOnFocus
+      />
+
+      <Text style={styles.helper}>
+        Current match minute is suggested automatically.
+        You can change it for an earlier event.
+      </Text>
+
       <Text style={styles.label}>Card type</Text>
+
       <View style={styles.row}>
         <Pressable
-          onPress={() => setCardType('YELLOW_CARD')}
+          onPress={() => {
+            setCardType('YELLOW_CARD');
+            setError(null);
+            setSuccess(null);
+          }}
           disabled={saving}
           style={[
             styles.option,
@@ -110,7 +177,11 @@ export function RecordCard({
         </Pressable>
 
         <Pressable
-          onPress={() => setCardType('RED_CARD')}
+          onPress={() => {
+            setCardType('RED_CARD');
+            setError(null);
+            setSuccess(null);
+          }}
           disabled={saving}
           style={[
             styles.option,
@@ -122,6 +193,7 @@ export function RecordCard({
       </View>
 
       <Text style={styles.label}>Team</Text>
+
       <View style={styles.row}>
         {[homeTeam, awayTeam].map((team) => (
           <Pressable
@@ -166,7 +238,10 @@ export function RecordCard({
         ))
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : null}
+
       {success ? (
         <Text style={styles.success}>{success}</Text>
       ) : null}
@@ -207,6 +282,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
   },
+  minuteInput: {
+    backgroundColor: '#0f172a',
+    borderColor: '#475569',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -228,6 +314,7 @@ const styles = StyleSheet.create({
   },
   helper: {
     color: '#94a3b8',
+    fontSize: 12,
   },
   saveButton: {
     backgroundColor: '#38bdf8',
