@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
 import AdminMatchesPage from './AdminMatchesPage'
@@ -518,7 +518,7 @@ function MatchDetailPage() {
         setEvents(eventsData)
         setSquad(squadData)
 
-        if (matchData.status === 'LIVE' || matchData.status === 'HALF_TIME') {
+        if (matchData.status !== 'FINISHED') {
           intervalId = setInterval(() => {
             void refreshLiveData()
           }, 15000)
@@ -557,7 +557,7 @@ function MatchDetailPage() {
         setMatch(matchData)
         setEvents(eventsData)
 
-        if (matchData.status !== 'LIVE' && matchData.status !== 'HALF_TIME' && intervalId) {
+        if (matchData.status === 'FINISHED' && intervalId) {
           clearInterval(intervalId)
           intervalId = undefined
         }
