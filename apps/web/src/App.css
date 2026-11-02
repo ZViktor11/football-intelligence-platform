@@ -643,3 +643,58 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* Match administration panels */
+
+.match-detail > section {
+  margin-top: 24px;
+  padding: 28px;
+  background: #ffffff;
+  border: 1px solid #e3e8e5;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(23, 33, 27, 0.04);
+}
+
+.match-detail > section h2 {
+  margin: 0 0 16px;
+  font-size: 22px;
+  color: #17251d;
+}
+
+.match-detail > section p {
+  color: #66736b;
+  line-height: 1.6;
+}
+
+.match-detail > section input,
+.match-detail > section select,
+.match-detail > section textarea {
+  box-sizing: border-box;
+  min-height: 42px;
+  margin: 4px 8px 8px 0;
+}
+
+.match-detail > section button {
+  min-height: 42px;
+  margin: 4px 8px 8px 0;
+}
+
+.match-detail > section label {
+  display: inline-block;
+  margin: 8px 8px 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .match-detail > section {
+    padding: 18px;
+  }
+
+  .match-detail > section input,
+  .match-detail > section select,
+  .match-detail > section textarea {
+    width: 100%;
+    margin-right: 0;
+  }
+}
