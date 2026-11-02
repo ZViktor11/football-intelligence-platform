@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { API_URL } from './src/config';
+import { deleteMatchEvent } from './src/matchEvents';
 import { RecordGoal } from './src/RecordGoal';
 import { RecordCard } from './src/RecordCard';
 import { RecordSubstitution } from './src/RecordSubstitution';
@@ -43,12 +45,19 @@ type MatchEvent = {
   isOwnGoal: boolean;
 };
 
+type SquadEntry = {
+  playerId: number;
+  teamId: number;
+  role: 'STARTER' | 'SUBSTITUTE';
+};
+
 type Match = {
   id: number;
   events?: MatchEvent[];
   date: string;
   status: MatchStatus;
   matchMinute?: number | null;
+  secondHalfStartedAt?: string | null;
   homeScore: number;
   awayScore: number;
   homeTeam: { id: number; name: string };
@@ -124,8 +133,57 @@ function MatchDetail({
 }) {
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [squad, setSquad] = useState<SquadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+
+  const nextStatus: MatchStatus | null = !match
+    ? null
+    : match.status === 'SCHEDULED'
+      ? 'PRE_MATCH'
+      : match.status === 'PRE_MATCH'
+        ? 'LIVE'
+        : match.status === 'HALF_TIME'
+          ? 'LIVE'
+          : match.status === 'LIVE'
+            ? match.secondHalfStartedAt
+              ? 'FINISHED'
+              : 'HALF_TIME'
+            : null;
+
+  async function changeMatchStatus(status: MatchStatus) {
+    if (!match || !token || statusUpdating) return;
+
+    setStatusUpdating(true);
+
+    try {
+      const response = await fetch(`${API_URL}/matches/${match.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      await loadMatch();
+    } catch (err) {
+      Alert.alert(
+        'Status update failed',
+        err instanceof Error ? err.message : 'Unknown error',
+      );
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
 
   const loadMatch = useCallback(async () => {
     try {
@@ -156,6 +214,36 @@ function MatchDetail({
 
     return () => clearInterval(interval);
   }, [loadMatch]);
+
+  const loadSquad = useCallback(async () => {
+    if (!token) {
+      setSquad([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/match-squads/match/${matchId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Squad API returned HTTP ${response.status}`);
+      }
+
+      const data: SquadEntry[] = await response.json();
+      setSquad(data);
+    } catch (err) {
+      setSquad([]);
+      setError(
+        err instanceof Error ? err.message : 'Could not load match squad',
+      );
+    }
+  }, [matchId, token]);
+
+  useEffect(() => {
+    void loadSquad();
+  }, [loadSquad, match?.status]);
 
   useEffect(() => {
     let active = true;
@@ -189,6 +277,43 @@ function MatchDetail({
       active = false;
     };
   }, []);
+
+  async function removeEvent(eventId: number) {
+    if (!token || deletingEventId !== null) return;
+
+    setDeletingEventId(eventId);
+
+    try {
+      await deleteMatchEvent(token, eventId);
+      await loadMatch();
+    } catch (err) {
+      Alert.alert(
+        'Could not delete event',
+        err instanceof Error ? err.message : 'Unknown error',
+      );
+    } finally {
+      setDeletingEventId(null);
+    }
+  }
+
+  function confirmDeleteEvent(event: MatchEvent) {
+    if (!token || deletingEventId !== null) return;
+
+    Alert.alert(
+      'Delete match event?',
+      `Delete ${eventLabel(event)} at minute ${event.minute ?? '?'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void removeEvent(event.id);
+          },
+        },
+      ],
+    );
+  }
 
   function eventLabel(event: MatchEvent): string {
     const playerName = event.player
@@ -273,6 +398,42 @@ function MatchDetail({
                     onChanged={loadMatch}
                   />
                 )}
+              {match && token && nextStatus && (
+                <Pressable
+                  disabled={statusUpdating}
+                  onPress={() =>
+                    Alert.alert(
+                      'Change match status',
+                      `Change status to ${statusLabel(nextStatus)}?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Confirm',
+                          onPress: () => void changeMatchStatus(nextStatus),
+                        },
+                      ],
+                    )
+                  }
+                  style={{
+                    backgroundColor: '#16794a',
+                    padding: 14,
+                    borderRadius: 12,
+                    marginBottom: 12,
+                    opacity: statusUpdating ? 0.5 : 1,
+                  }}
+                >
+                  <Text style={{
+                    color: '#ffffff',
+                    fontWeight: '700',
+                    textAlign: 'center',
+                  }}>
+                    {statusUpdating
+                      ? 'Updating...'
+                      : `Next status: ${statusLabel(nextStatus)}`}
+                  </Text>
+                </Pressable>
+              )}
+
               {match && (
                 <View style={styles.card}>
                   <Text style={styles.competition}>
@@ -300,8 +461,13 @@ function MatchDetail({
   homeTeam={match.homeTeam}
   awayTeam={match.awayTeam}
   players={players}
+  squad={squad}
+  events={match.events ?? []}
   token={token}
-  onSaved={loadMatch}
+  onSaved={async () => {
+    await loadMatch();
+    await loadSquad();
+  }}
 />
                 )}
 
@@ -375,6 +541,24 @@ function MatchDetail({
                     {teamLabel}
                   </Text>
                 </View>
+                {token && (
+                  <Pressable
+                    disabled={deletingEventId !== null}
+                    onPress={() => confirmDeleteEvent(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete event ${item.id}`}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      alignSelf: 'center',
+                      opacity: deletingEventId !== null ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ color: '#dc2626', fontWeight: '700' }}>
+                      {deletingEventId === item.id ? 'Deleting...' : 'Delete'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             );
           }}

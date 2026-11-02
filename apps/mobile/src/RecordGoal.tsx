@@ -23,12 +23,59 @@ type Team = {
   name: string;
 };
 
+type SquadEntry = {
+  playerId: number;
+  teamId: number;
+  role: 'STARTER' | 'SUBSTITUTE';
+};
+
+type MatchEvent = {
+  id: number;
+  type: string;
+  minute: number | null;
+  playerOutId: number | null;
+  playerInId: number | null;
+};
+
+function getOnPitchPlayerIds(
+  squad: SquadEntry[],
+  events: MatchEvent[],
+  minute: number,
+): Set<number> {
+  const ids = new Set(
+    squad
+      .filter((entry) => entry.role === 'STARTER')
+      .map((entry) => entry.playerId),
+  );
+
+  events
+    .filter(
+      (event) =>
+        event.type === 'SUBSTITUTION' &&
+        event.playerOutId !== null &&
+        event.playerInId !== null &&
+        (event.minute === null || event.minute <= minute),
+    )
+    .sort(
+      (a, b) =>
+        (a.minute ?? 0) - (b.minute ?? 0) || a.id - b.id,
+    )
+    .forEach((event) => {
+      ids.delete(event.playerOutId!);
+      ids.add(event.playerInId!);
+    });
+
+  return ids;
+}
+
 type RecordGoalProps = {
   matchId: number;
   currentMinute: number | null;
   homeTeam: Team;
   awayTeam: Team;
   players: Player[];
+  squad: SquadEntry[];
+  events: MatchEvent[];
   token: string;
   onSaved: () => Promise<void>;
 };
@@ -39,6 +86,8 @@ export function RecordGoal({
   homeTeam,
   awayTeam,
   players,
+  squad,
+  events,
   token,
   onSaved,
 }: RecordGoalProps) {
@@ -66,8 +115,21 @@ export function RecordGoal({
     }
   }, [currentMinute]);
 
+  const parsedMinute = Number(minute.trim());
+  const validMinute =
+    minute.trim() !== '' &&
+    Number.isInteger(parsedMinute) &&
+    parsedMinute >= 0 &&
+    parsedMinute <= 120;
+
+  const onPitchIds = validMinute
+    ? getOnPitchPlayerIds(squad, events, parsedMinute)
+    : new Set<number>();
+
   const teamPlayers = players.filter(
-    (player) => player.teamId === teamId,
+    (player) =>
+      player.teamId === teamId &&
+      onPitchIds.has(player.id),
   );
 
   function selectTeam(id: number) {
@@ -97,6 +159,12 @@ export function RecordGoal({
       parsedMinute > 120
     ) {
       setError('Enter a valid minute between 0 and 120.');
+      setSuccess(null);
+      return;
+    }
+
+    if (playerId !== null && !teamPlayers.some((player) => player.id === playerId)) {
+      setError('Selected goalscorer is not on the pitch at this minute.');
       setSuccess(null);
       return;
     }

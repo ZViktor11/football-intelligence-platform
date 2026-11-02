@@ -51,3 +51,41 @@ export async function createMatchEvent(
 
   throw new Error(message);
 }
+
+export async function deleteMatchEvent(
+  token: string,
+  eventId: number,
+): Promise<void> {
+  const response = await fetch(`${API_URL}/match-events/${eventId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.ok) return;
+
+  if (response.status === 401) {
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  if (response.status === 403) {
+    throw new Error('You do not have permission to delete this event.');
+  }
+
+  let message = `Could not delete event (HTTP ${response.status}).`;
+
+  try {
+    const data: { message?: string | string[] } = await response.json();
+
+    if (typeof data.message === 'string') {
+      message = data.message;
+    } else if (Array.isArray(data.message)) {
+      message = data.message.join(', ');
+    }
+  } catch {
+    // Keep HTTP error message if response parsing fails.
+  }
+
+  throw new Error(message);
+}
