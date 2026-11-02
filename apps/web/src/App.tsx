@@ -1691,7 +1691,7 @@ function TeamDetailPage() {
         <h1>{team.name}</h1>
 
         <p className="hero-description">
-          {team.city && `${team.city} Ă‚Â· `}
+          {team.city && `${team.city} · `}
           {team.season.name}
         </p>
       </section>

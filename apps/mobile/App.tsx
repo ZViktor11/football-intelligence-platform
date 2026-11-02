@@ -351,7 +351,7 @@ function MatchDetail({
             return (
               <View style={styles.eventRow}>
                 <Text style={styles.eventMinute}>
-                  {item.minute ?? '–'}�?
+                  {item.minute ?? '–'}'
                 </Text>
                 <View style={styles.eventContent}>
                   <View style={styles.eventTitleRow}>
