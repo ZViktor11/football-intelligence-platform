@@ -165,6 +165,16 @@ export class MatchesService {
       );
     }
 
+    if (
+      match.status === MatchStatus.LIVE &&
+      status === MatchStatus.FINISHED &&
+      match.secondHalfStartedAt === null
+    ) {
+      throw new BadRequestException(
+        'Cannot finish match before the second half has started',
+      );
+    }
+
     const now = new Date();
 
     const isFirstKickoff =

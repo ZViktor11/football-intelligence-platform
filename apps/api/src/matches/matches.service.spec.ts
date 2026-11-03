@@ -347,6 +347,24 @@ describe('MatchesService', () => {
       });
     });
 
+    it('should reject LIVE -> FINISHED before second half starts', async () => {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.LIVE,
+        actualStartedAt: new Date('2026-10-02T08:00:00.000Z'),
+        firstHalfEndedAt: null,
+        secondHalfStartedAt: null,
+      });
+
+      await expect(
+        service.updateStatus(1, MatchStatus.FINISHED),
+      ).rejects.toThrow(
+        'Cannot finish match before the second half has started',
+      );
+
+      expect(prismaMock.match.update).not.toHaveBeenCalled();
+    });
+
     it('should allow LIVE -> FINISHED and set actualEndedAt', async () => {
       const now = new Date('2026-10-02T09:45:00.000Z');
 
