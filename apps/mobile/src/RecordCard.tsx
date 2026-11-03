@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { createMatchEvent } from './matchEvents';
+import { SessionExpiredError } from './apiClient';
 
 type Player = {
   id: number;
@@ -33,6 +34,7 @@ type RecordCardProps = {
   players: Player[];
   token: string;
   onSaved: () => Promise<void>;
+  onSessionExpired: () => void;
 };
 
 export function RecordCard({
@@ -43,6 +45,7 @@ export function RecordCard({
   players,
   token,
   onSaved,
+  onSessionExpired,
 }: RecordCardProps) {
   const [teamId, setTeamId] = useState(homeTeam.id);
   const [playerId, setPlayerId] = useState<number | null>(null);
@@ -125,6 +128,11 @@ export function RecordCard({
       await onSaved();
       setSuccess('Card recorded successfully.');
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       setError(
         err instanceof Error
           ? err.message

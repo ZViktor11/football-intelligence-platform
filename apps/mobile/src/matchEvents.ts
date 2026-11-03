@@ -1,4 +1,5 @@
 import { API_URL } from './config';
+import { authenticatedFetch } from './apiClient';
 
 export type CreateMatchEventInput = {
   type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
@@ -15,11 +16,11 @@ export async function createMatchEvent(
   token: string,
   input: CreateMatchEventInput,
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/match-events`, {
+  const response = await authenticatedFetch(`${API_URL}/match-events`, token, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+
     },
     body: JSON.stringify(input),
   });
@@ -56,10 +57,10 @@ export async function deleteMatchEvent(
   token: string,
   eventId: number,
 ): Promise<void> {
-  const response = await fetch(`${API_URL}/match-events/${eventId}`, {
+  const response = await authenticatedFetch(`${API_URL}/match-events/${eventId}`, token, {
     method: 'DELETE',
     headers: {
-      Authorization: `Bearer ${token}`,
+
     },
   });
 

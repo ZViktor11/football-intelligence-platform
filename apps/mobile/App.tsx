@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { API_URL } from './src/config';
+import { authenticatedFetch, SessionExpiredError } from './src/apiClient';
 import { deleteMatchEvent } from './src/matchEvents';
 import { RecordGoal } from './src/RecordGoal';
 import { RecordCard } from './src/RecordCard';
@@ -126,10 +127,12 @@ function MatchDetail({
   matchId,
   onBack,
   token,
+  onSessionExpired,
 }: {
   matchId: number;
   onBack: () => void;
   token: string | null;
+  onSessionExpired: () => void;
 }) {
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -160,14 +163,17 @@ function MatchDetail({
     setStatusUpdating(true);
 
     try {
-      const response = await fetch(`${API_URL}/matches/${match.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const response = await authenticatedFetch(
+        `${API_URL}/matches/${match.id}/status`,
+        token,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status }),
         },
-        body: JSON.stringify({ status }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(await response.text());
@@ -175,6 +181,11 @@ function MatchDetail({
 
       await loadMatch();
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       Alert.alert(
         'Status update failed',
         err instanceof Error ? err.message : 'Unknown error',
@@ -222,9 +233,9 @@ function MatchDetail({
     }
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_URL}/match-squads/match/${matchId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        token,
       );
 
       if (!response.ok) {
@@ -234,12 +245,17 @@ function MatchDetail({
       const data: SquadEntry[] = await response.json();
       setSquad(data);
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       setSquad([]);
       setError(
         err instanceof Error ? err.message : 'Could not load match squad',
       );
     }
-  }, [matchId, token]);
+  }, [matchId, token, onSessionExpired]);
 
   useEffect(() => {
     void loadSquad();
@@ -287,6 +303,11 @@ function MatchDetail({
       await deleteMatchEvent(token, eventId);
       await loadMatch();
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       Alert.alert(
         'Could not delete event',
         err instanceof Error ? err.message : 'Unknown error',
@@ -396,6 +417,7 @@ function MatchDetail({
                     awayTeamId={match.awayTeam.id}
                     token={token}
                     onChanged={loadMatch}
+                    onSessionExpired={onSessionExpired}
                   />
                 )}
               {match && token && nextStatus && (
@@ -468,6 +490,7 @@ function MatchDetail({
     await loadMatch();
     await loadSquad();
   }}
+    onSessionExpired={onSessionExpired}
 />
                 )}
 
@@ -483,6 +506,7 @@ function MatchDetail({
   players={players}
   token={token}
   onSaved={loadMatch}
+    onSessionExpired={onSessionExpired}
 />
                 )}
 
@@ -498,6 +522,7 @@ function MatchDetail({
                     events={match.events ?? []}
                     token={token}
                     onSaved={loadMatch}
+    onSessionExpired={onSessionExpired}
                   />
                 )}
 
@@ -637,6 +662,10 @@ export default function App() {
         matchId={selectedMatchId}
         token={session?.accessToken ?? null}
         onBack={() => setSelectedMatchId(null)}
+        onSessionExpired={() => {
+          setSession(null);
+          setShowLogin(true);
+        }}
       />
     );
   }

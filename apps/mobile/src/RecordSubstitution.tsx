@@ -11,6 +11,7 @@ import {
 
 import { API_URL } from './config';
 import { createMatchEvent } from './matchEvents';
+import { SessionExpiredError } from './apiClient';
 
 type Team = {
   id: number;
@@ -48,6 +49,7 @@ type Props = {
   events: SubstitutionEvent[];
   token: string;
   onSaved: () => Promise<void>;
+  onSessionExpired: () => void;
 };
 
 export function RecordSubstitution({
@@ -58,6 +60,7 @@ export function RecordSubstitution({
   events,
   token,
   onSaved,
+  onSessionExpired,
 }: Props) {
   const [squad, setSquad] = useState<SquadEntry[]>([]);
   const [teamId, setTeamId] = useState(homeTeam.id);
@@ -228,6 +231,11 @@ export function RecordSubstitution({
       await onSaved();
       setSuccess('Substitution recorded successfully.');
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       setError(
         err instanceof Error
           ? err.message

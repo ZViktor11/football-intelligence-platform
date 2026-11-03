@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { createMatchEvent } from './matchEvents';
+import { SessionExpiredError } from './apiClient';
 
 type Player = {
   id: number;
@@ -78,6 +79,7 @@ type RecordGoalProps = {
   events: MatchEvent[];
   token: string;
   onSaved: () => Promise<void>;
+  onSessionExpired: () => void;
 };
 
 export function RecordGoal({
@@ -90,6 +92,7 @@ export function RecordGoal({
   events,
   token,
   onSaved,
+  onSessionExpired,
 }: RecordGoalProps) {
   const [teamId, setTeamId] = useState<number>(homeTeam.id);
   const [playerId, setPlayerId] = useState<number | null>(null);
@@ -187,6 +190,11 @@ export function RecordGoal({
       await onSaved();
       setSuccess('Goal recorded successfully.');
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       setError(
         err instanceof Error
           ? err.message

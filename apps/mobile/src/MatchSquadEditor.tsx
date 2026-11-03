@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { API_URL } from './config';
+import { authenticatedFetch, SessionExpiredError } from './apiClient';
 
 type SquadRole = 'STARTER' | 'SUBSTITUTE';
 
@@ -35,6 +36,7 @@ type Props = {
   awayTeamId: number;
   token: string;
   onChanged?: () => void;
+  onSessionExpired: () => void;
 };
 
 async function apiRequest<T>(
@@ -43,11 +45,10 @@ async function apiRequest<T>(
   method = 'GET',
   body?: unknown,
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await authenticatedFetch(`${API_URL}${path}`, token, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -84,6 +85,7 @@ export default function MatchSquadEditor({
   awayTeamId,
   token,
   onChanged,
+  onSessionExpired,
 }: Props) {
   const [teamId, setTeamId] = useState(homeTeamId);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -106,6 +108,11 @@ export default function MatchSquadEditor({
       setPlayers(allPlayers);
       setSquad(entries);
     } catch (error) {
+      if (error instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       Alert.alert(
         'Loading failed',
         error instanceof Error ? error.message : 'Unknown error',
@@ -113,7 +120,7 @@ export default function MatchSquadEditor({
     } finally {
       setLoading(false);
     }
-  }, [matchId, token]);
+  }, [matchId, token, onSessionExpired]);
 
   useEffect(() => {
     void load();
@@ -156,6 +163,11 @@ export default function MatchSquadEditor({
       await load();
       onChanged?.();
     } catch (error) {
+      if (error instanceof SessionExpiredError) {
+        onSessionExpired();
+        return;
+      }
+
       Alert.alert(
         'Could not save squad',
         error instanceof Error ? error.message : 'Unknown error',
