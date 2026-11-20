@@ -15,14 +15,16 @@ import { CreateTeamDto } from './dto/create-team.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CompetitionCreateAccess, CompetitionCreateAccessGuard } from '../auth/competition-create-access.guard';
 
 @Controller('teams')
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 
   @Post()
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, CompetitionCreateAccessGuard)
   @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN)
+  @CompetitionCreateAccess('seasonId')
   create(@Body() createTeamDto: CreateTeamDto) {
     return this.teamsService.create(createTeamDto);
   }

@@ -15,14 +15,16 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CompetitionCreateAccess, CompetitionCreateAccessGuard } from '../auth/competition-create-access.guard';
 
 @Controller('players')
 export class PlayersController {
   constructor(private readonly playersService: PlayersService) {}
 
   @Post()
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, CompetitionCreateAccessGuard)
   @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN)
+  @CompetitionCreateAccess('teamId')
   create(@Body() createPlayerDto: CreatePlayerDto) {
     return this.playersService.create(createPlayerDto);
   }

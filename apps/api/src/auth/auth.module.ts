@@ -9,6 +9,7 @@ import { RolesGuard } from './roles.guard';
 import { MatchAccessGuard } from './match-access.guard';
 import { CompetitionAccessGuard } from './competition-access.guard';
 import { FavoritesController } from './favorites.controller';
+import { CompetitionCreateAccessGuard } from './competition-create-access.guard';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { FavoritesController } from './favorites.controller';
     RolesGuard,
     MatchAccessGuard,
     CompetitionAccessGuard,
+    CompetitionCreateAccessGuard,
   ],
   controllers: [AuthController, FavoritesController],
   exports: [
@@ -33,6 +35,7 @@ import { FavoritesController } from './favorites.controller';
     RolesGuard,
     MatchAccessGuard,
     CompetitionAccessGuard,
+    CompetitionCreateAccessGuard,
     JwtModule,
   ],
 })

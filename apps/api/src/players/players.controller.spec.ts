@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { CompetitionCreateAccessGuard } from '../auth/competition-create-access.guard';
 import { PlayersController } from './players.controller';
 import { PlayersService } from './players.service';
 
@@ -27,6 +28,8 @@ describe('PlayersController', () => {
       .useValue({
         canActivate: jest.fn(() => true),
       })
+      .overrideGuard(CompetitionCreateAccessGuard)
+      .useValue({ canActivate: jest.fn(() => true) })
       .compile();
 
     controller = module.get<PlayersController>(PlayersController);

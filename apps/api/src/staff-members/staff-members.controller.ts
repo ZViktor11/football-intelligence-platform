@@ -16,14 +16,16 @@ import { CreateStaffMemberDto } from './dto/create-staff-member.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CompetitionCreateAccess, CompetitionCreateAccessGuard } from '../auth/competition-create-access.guard';
 
 @Controller('staff-members')
 export class StaffMembersController {
   constructor(private readonly staffMembersService: StaffMembersService) {}
 
   @Post()
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, CompetitionCreateAccessGuard)
   @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN)
+  @CompetitionCreateAccess('teamId')
   create(@Body() createStaffMemberDto: CreateStaffMemberDto) {
     return this.staffMembersService.create(createStaffMemberDto);
   }

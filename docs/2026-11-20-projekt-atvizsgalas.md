@@ -54,3 +54,14 @@ Az értékek érintett függőségcsomagokra vonatkoznak, nem egyedi alkalmazás
 5. Reprodukálható telepítési útmutató, demóadatok és szakdolgozati dokumentáció véglegesítése.
 
 Az áttekintés csak dokumentálja a hibákat és kockázatokat; nem tartalmazza a felsorolt javításokat.
+
+## Utókövetés – jogosultsági javítások
+
+A három P0 megállapítás javítása elkészült a `559bf23` verzió alapján.
+
+- A felhasználói listát és egyedi fiókadatokat csak aktív, hitelesített rendszeradminisztrátor érheti el.
+- A szezon, csapat, játékos és stábtag létrehozása ellenőrzi a célbajnokságot. A szezon és csapat alapján a szerver az adatbázisból oldja fel a bajnokságot. A bajnokságadminisztrátor csak a hozzá rendelt bajnokságban hozhat létre adatot; csapat nélküli játékost csak rendszeradminisztrátor hozhat létre.
+- Az inaktív fiókok belépési kísérlete sikertelen, és a korábban kiadott token sem jogosít védett végpont elérésére. A törölt fiókok tokenjei szintén elutasításra kerülnek.
+- A nyilvános sportadatok lekérdezési végpontjai továbbra is elérhetők hitelesítés nélkül.
+
+Ellenőrzés: 23 sikeres tesztcsomag, 199/199 teszt (44 új). Ebből hét HTTP-integrációs teszt a tényleges NestJS guardokat és vezérlőket használja, mockolt adatbázissal és tokenellenőrzéssel. A tesztek ellenőrzik a 401, 403, 200 és 201 válaszokat. A backend build sikeres. Nincs új adatbázis-migráció vagy kliensoldali függőség. A többi korábban feltárt kockázat továbbra is nyitott.
