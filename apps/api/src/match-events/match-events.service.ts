@@ -2,6 +2,7 @@
 import { Prisma } from '../../generated/prisma/client';
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,17 +10,44 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MatchesService } from '../matches/matches.service';
 import { AuthService } from '../auth/auth.service';
 import { Role } from '../../generated/prisma/client';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { validateTimeline, dismissedByCard } from './match-timeline';
 
 type EventType = 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
 
 @Injectable()
 export class MatchEventsService {
   constructor(
-  private readonly prisma: PrismaService,
+  private readonly rootPrisma: PrismaService,
   private readonly matchesService: MatchesService,
   private readonly authService: AuthService,
   private readonly auditLogsService: AuditLogsService,
 ) {}
+
+  private readonly transactionContext = new AsyncLocalStorage<Prisma.TransactionClient>();
+  private get prisma(): Prisma.TransactionClient {
+    return this.transactionContext.getStore() ?? this.rootPrisma;
+  }
+
+  private async atomic<T>(operation: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.rootPrisma.$transaction(
+          tx => this.transactionContext.run(tx, operation),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2034') throw error;
+        if (attempt >= 2) throw new ConflictException('Concurrent match update; please reload and retry');
+      }
+    }
+  }
+
+  private async validateHistory(matchId: number) {
+    const events = await this.prisma.matchEvent.findMany({ where: { matchId } });
+    const squad = await this.prisma.matchSquadPlayer.findMany({ where: { matchId } });
+    validateTimeline(squad, events);
+  }
 
   private async ensureMatchIsEditable(status: string, userId: number) {
     if (status === 'LIVE' || status === 'HALF_TIME') {
@@ -133,7 +161,7 @@ export class MatchEventsService {
       where: {
         matchId,
         teamId,
-        type: { in: ['SUBSTITUTION', 'RED_CARD'] },
+        type: { in: ['SUBSTITUTION', 'RED_CARD', 'YELLOW_CARD'] },
         minute: {
           lte: minute,
         },
@@ -156,10 +184,11 @@ export class MatchEventsService {
     });
 
     const sentOff = new Set<number>();
+    const yellows = new Map<number, number>();
     for (const substitution of substitutions) {
       if (excludedEventId !== undefined && substitution.minute === minute && substitution.id > excludedEventId) continue;
-      if (substitution.type === 'RED_CARD') {
-        if (substitution.playerId != null) {
+      if (substitution.type === 'RED_CARD' || substitution.type === 'YELLOW_CARD') {
+        if (substitution.playerId != null && dismissedByCard(substitution, yellows)) {
           sentOff.add(substitution.playerId);
           onPitch.delete(substitution.playerId);
         }
@@ -330,10 +359,12 @@ export class MatchEventsService {
       const before = (event: { minute: number | null; id: number }) =>
         (event.minute ?? 0) < minute ||
         ((event.minute ?? 0) === minute && (excludedEventId === undefined || event.id < excludedEventId));
-      if (related.some(event => event.type === 'RED_CARD' && event.playerId === playerId && before(event))) {
+      const previousCards = related.filter(event => event.playerId === playerId && before(event));
+      const yellows = previousCards.filter(event => event.type === 'YELLOW_CARD').length;
+      if (yellows >= 2 || previousCards.some(event => event.type === 'RED_CARD')) {
         throw new BadRequestException('Player has already been sent off');
       }
-      if (type === 'RED_CARD' && related.some(event => !before(event))) {
+      if ((type === 'RED_CARD' || (type === 'YELLOW_CARD' && yellows === 1)) && related.some(event => !before(event))) {
         throw new BadRequestException('Remove or correct later events involving this player before recording a red card');
       }
     }
@@ -378,7 +409,7 @@ export class MatchEventsService {
       where: {
         matchId,
         teamId,
-        type: { in: ['SUBSTITUTION', 'RED_CARD'] },
+        type: { in: ['SUBSTITUTION', 'RED_CARD', 'YELLOW_CARD'] },
         ...(excludedEventId !== undefined
           ? {
               id: {
@@ -425,9 +456,10 @@ export class MatchEventsService {
     });
 
     const sentOff = new Set<number>();
+    const yellows = new Map<number, number>();
     for (const substitution of substitutions) {
-      if (substitution.type === 'RED_CARD') {
-        if (substitution.playerId != null) {
+      if (substitution.type === 'RED_CARD' || substitution.type === 'YELLOW_CARD') {
+        if (substitution.playerId != null && dismissedByCard(substitution, yellows)) {
           sentOff.add(substitution.playerId);
           onPitch.delete(substitution.playerId);
         }
@@ -711,9 +743,9 @@ export class MatchEventsService {
       throw new NotFoundException('Match not found');
     }
 
-    return this.prisma.matchEvent.findMany({
+    const events = await this.prisma.matchEvent.findMany({
       where: { matchId },
-      orderBy: [{ minute: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ minute: 'asc' }, { id: 'asc' }],
       include: {
         team: true,
         player: true,
@@ -723,6 +755,11 @@ export class MatchEventsService {
         playerIn: true,
       },
     });
+    const yellows = new Map<number, number>();
+    return events.map(event => ({
+      ...event,
+      isSecondYellow: event.type === 'YELLOW_CARD' && dismissedByCard(event, yellows),
+    }));
   }
 
   async create(
@@ -738,6 +775,13 @@ export class MatchEventsService {
       playerInId?: number;
       isOwnGoal?: boolean;
     },
+    userId: number,
+  ) {
+    return this.atomic(() => this.createAtomic(data, userId));
+  }
+
+  private async createAtomic(
+    data: Parameters<MatchEventsService['create']>[0],
     userId: number,
   ) {
     const match = await this.prisma.match.findUnique({
@@ -789,7 +833,7 @@ export class MatchEventsService {
       isOwnGoal,
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const tx = this.prisma;
   const event = await tx.matchEvent.create({
     data: {
       type: data.type,
@@ -805,6 +849,7 @@ export class MatchEventsService {
     },
   });
 
+  await this.validateHistory(data.matchId);
   await this.recalculateScore(data.matchId, tx);
 
   await this.auditLogsService.create(
@@ -820,7 +865,6 @@ export class MatchEventsService {
   );
 
   return event;
-});
   }
 
   async update(
@@ -836,6 +880,14 @@ export class MatchEventsService {
       playerInId?: number | null;
       isOwnGoal?: boolean;
     },
+    userId: number,
+  ) {
+    return this.atomic(() => this.updateAtomic(id, data, userId));
+  }
+
+  private async updateAtomic(
+    id: number,
+    data: Parameters<MatchEventsService['update']>[1],
     userId: number,
   ) {
     const event = await this.prisma.matchEvent.findUnique({
@@ -915,12 +967,13 @@ export class MatchEventsService {
       event.id,
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const tx = this.prisma;
       const updatedEvent = await tx.matchEvent.update({
         where: { id },
         data,
       });
 
+      await this.validateHistory(event.matchId);
       await this.recalculateScore(event.matchId, tx);
 
       const { match: _match, ...beforeEvent } = event;
@@ -939,10 +992,13 @@ export class MatchEventsService {
       );
 
       return updatedEvent;
-    });
   }
 
   async remove(id: number, userId: number) {
+    return this.atomic(() => this.removeAtomic(id, userId));
+  }
+
+  private async removeAtomic(id: number, userId: number) {
     const event = await this.prisma.matchEvent.findUnique({
       where: { id },
       include: {
@@ -956,11 +1012,12 @@ export class MatchEventsService {
 
     await this.ensureMatchIsEditable(event.match.status, userId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const tx = this.prisma;
       const deletedEvent = await tx.matchEvent.delete({
         where: { id },
       });
 
+      await this.validateHistory(event.matchId);
       await this.recalculateScore(event.matchId, tx);
 
       await this.auditLogsService.create(
@@ -976,7 +1033,6 @@ export class MatchEventsService {
       );
 
       return deletedEvent;
-    });
   }
 }
 

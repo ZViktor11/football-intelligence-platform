@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { favoriteKinds as kinds, favoriteTitle as title, useFavorites } from './favorites-context'
 import type { FavoriteKind as Kind, FavoriteTarget as Target } from './favorites-context'
 
-const API = 'http://localhost:3000'
+import { API_URL as API } from './config'
 export default function FavoritesPage() {
   const { token, favorites, ready, busy: updating, signIn, signOut, change } = useFavorites()
   const [register, setRegister] = useState(false)

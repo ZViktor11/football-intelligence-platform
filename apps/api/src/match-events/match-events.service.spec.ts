@@ -4,7 +4,7 @@ import { MatchEventsService } from './match-events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchesService } from '../matches/matches.service';
 import { AuthService } from '../auth/auth.service';
-import { Role } from '../../generated/prisma/client';
+import { Prisma, Role } from '../../generated/prisma/client';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 describe('MatchEventsService', () => {
@@ -89,6 +89,7 @@ describe('MatchEventsService', () => {
     });
 
     prismaMock.matchEvent.findMany.mockResolvedValue([]);
+    prismaMock.matchSquadPlayer.findMany.mockResolvedValue([]);
 
     prismaMock.match.update.mockResolvedValue({
       id: 1,
@@ -101,6 +102,24 @@ describe('MatchEventsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('retries a serialization conflict using a new transaction', async () => {
+    prismaMock.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Serialization failure', { code: 'P2034', clientVersion: '7.10.1' }),
+    );
+    matchesServiceMock.calculateMatchClock.mockReturnValue({ matchMinute: 23 });
+    prismaMock.matchEvent.create.mockImplementation(async ({ data }) => ({ id: 1, ...data }));
+    await expect(service.create({ type: 'GOAL', matchId: 1, teamId: 1 }, 2)).resolves.toBeDefined();
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaMock.$transaction).toHaveBeenLastCalledWith(expect.any(Function), { isolationLevel: 'Serializable' });
+  });
+
+  it('returns a conflict after bounded retries', async () => {
+    const conflict = new Prisma.PrismaClientKnownRequestError('Serialization failure', { code: 'P2034', clientVersion: '7.10.1' });
+    prismaMock.$transaction.mockRejectedValueOnce(conflict).mockRejectedValueOnce(conflict).mockRejectedValueOnce(conflict);
+    await expect(service.create({ type: 'GOAL', matchId: 1, teamId: 1 }, 2)).rejects.toThrow('Concurrent match update');
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(3);
   });
 
   describe('sent-off players', () => {
@@ -990,7 +1009,7 @@ describe('MatchEventsService', () => {
             where: expect.objectContaining({
               matchId: 1,
               teamId: 1,
-              type: { in: ['SUBSTITUTION', 'RED_CARD'] },
+                type: { in: ['SUBSTITUTION', 'RED_CARD', 'YELLOW_CARD'] },
               id: {
                 not: 50,
               },

@@ -139,6 +139,20 @@ describe('PlayersService', () => {
       });
     });
 
+    it('counts a second yellow as one dismissal in the same match only', async () => {
+      prismaMock.player.findUnique.mockResolvedValue({
+        id: 1, matchSquadEntries: [], assistEvents: [],
+        matchEvents: [
+          { type: 'YELLOW_CARD', matchId: 1 },
+          { type: 'YELLOW_CARD', matchId: 1 },
+          { type: 'YELLOW_CARD', matchId: 2 },
+          { type: 'YELLOW_CARD', matchId: 3 },
+          { type: 'RED_CARD', matchId: 4 },
+        ],
+      });
+      expect((await service.findOne(1)).statistics).toMatchObject({ yellowCards: 4, redCards: 2 });
+    });
+
     it('should only request statistics from finished matches', async () => {
       prismaMock.player.findUnique.mockResolvedValue({
         id: 1,
@@ -181,6 +195,7 @@ describe('PlayersService', () => {
             select: {
               type: true,
               isOwnGoal: true,
+              matchId: true,
             },
           },
           assistEvents: {

@@ -1,3 +1,4 @@
+import { API_URL } from './config'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -97,6 +98,7 @@ type MatchSquadPlayer = {
 
 
 type MatchEvent = {
+  isSecondYellow?: boolean
 
   id: number
 
@@ -221,7 +223,7 @@ function AdminMatchPage() {
 
       const response = await fetch(
 
-        `http://localhost:3000/matches/${id}`,
+        `${API_URL}/matches/${id}`,
 
       )
 
@@ -279,7 +281,7 @@ function AdminMatchPage() {
 
       const response = await fetch(
 
-        `http://localhost:3000/match-squads/match/${id}`,
+        `${API_URL}/match-squads/match/${id}`,
 
       )
 
@@ -323,7 +325,7 @@ function AdminMatchPage() {
 
   const loadPlayers = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3000/players')
+      const response = await fetch(API_URL + '/players')
 
       if (!response.ok) {
         throw new Error(`Players request failed: ${response.status}`)
@@ -346,7 +348,7 @@ function AdminMatchPage() {
 
       const response = await fetch(
 
-        `http://localhost:3000/match-events/match/${id}`,
+        `${API_URL}/match-events/match/${id}`,
 
       )
 
@@ -459,7 +461,7 @@ function AdminMatchPage() {
         .filter(
           (event) =>
             event.id !== excludedEventId &&
-            (event.type === 'SUBSTITUTION' || event.type === 'RED_CARD') &&
+            (event.type === 'SUBSTITUTION' || event.type === 'RED_CARD' || event.type === 'YELLOW_CARD') &&
             !(excludedEventId !== null && event.minute === minute && event.id > excludedEventId) &&
             (minute === null ||
               event.minute === null ||
@@ -478,11 +480,16 @@ function AdminMatchPage() {
         })
 
       const sentOff = new Set<number>()
+      const yellows = new Map<number, number>()
       substitutions.forEach((event) => {
-        if (event.type === 'RED_CARD') {
+        if (event.type === 'RED_CARD' || event.type === 'YELLOW_CARD') {
           if (event.playerId !== null) {
-            sentOff.add(event.playerId)
-            ids.delete(event.playerId)
+            const count = (yellows.get(event.playerId) ?? 0) + 1
+            if (event.type === 'YELLOW_CARD') yellows.set(event.playerId, count)
+            if (event.type === 'RED_CARD' || count >= 2) {
+              sentOff.add(event.playerId)
+              ids.delete(event.playerId)
+            }
           }
           return
         }
@@ -495,7 +502,7 @@ function AdminMatchPage() {
         }
       })
 
-      return ids
+      return { ids, sentOff }
     },
     [squad, events],
   )
@@ -509,7 +516,7 @@ function AdminMatchPage() {
       : Number(goalMinute)
 
   const goalOnPitchPlayerIds = useMemo(
-    () => getOnPitchPlayerIdsAtMinute(goalEffectiveMinute),
+    () => getOnPitchPlayerIdsAtMinute(goalEffectiveMinute).ids,
     [getOnPitchPlayerIdsAtMinute, goalEffectiveMinute],
   )
 
@@ -542,9 +549,9 @@ function AdminMatchPage() {
   }
 
   return squad.filter(
-    (entry) => entry.teamId === selectedCardTeamId && !events.some(event => event.type === 'RED_CARD' && event.playerId === entry.playerId && (event.minute ?? 0) <= (cardMinute === '' ? match?.matchMinute ?? 0 : Number(cardMinute))),
+    (entry) => entry.teamId === selectedCardTeamId && !getOnPitchPlayerIdsAtMinute(cardMinute === '' ? match?.matchMinute ?? 0 : Number(cardMinute)).sentOff.has(entry.playerId),
   )
-}, [squad, selectedCardTeamId, events, cardMinute, match?.matchMinute])
+}, [squad, selectedCardTeamId, getOnPitchPlayerIdsAtMinute, cardMinute, match?.matchMinute])
 
   const selectedSubstitutionTeamId =
     substitutionTeamId === ''
@@ -557,7 +564,7 @@ function AdminMatchPage() {
       : Number(substitutionMinute)
 
   const substitutionOnPitchPlayerIds = useMemo(
-    () => getOnPitchPlayerIdsAtMinute(substitutionEffectiveMinute),
+    () => getOnPitchPlayerIdsAtMinute(substitutionEffectiveMinute).ids,
     [getOnPitchPlayerIdsAtMinute, substitutionEffectiveMinute],
   )
 
@@ -579,9 +586,9 @@ function AdminMatchPage() {
 
   const playerInOptions = useMemo(() => {
     return substitutionTeamPlayers.filter(
-      (entry) => !substitutionOnPitchPlayerIds.has(entry.playerId) && !events.some(event => event.type === 'RED_CARD' && event.playerId === entry.playerId && (substitutionEffectiveMinute === null || (event.minute ?? 0) <= substitutionEffectiveMinute)),
+      (entry) => !substitutionOnPitchPlayerIds.has(entry.playerId) && !getOnPitchPlayerIdsAtMinute(substitutionEffectiveMinute).sentOff.has(entry.playerId),
     )
-  }, [substitutionTeamPlayers, substitutionOnPitchPlayerIds, events, substitutionEffectiveMinute])
+  }, [substitutionTeamPlayers, substitutionOnPitchPlayerIds, getOnPitchPlayerIdsAtMinute, substitutionEffectiveMinute])
 
   const editEffectiveMinute =
     editEventMinute === '' ? null : Number(editEventMinute)
@@ -591,7 +598,7 @@ function AdminMatchPage() {
       getOnPitchPlayerIdsAtMinute(
         editEffectiveMinute,
         editingEventId,
-      ),
+      ).ids,
     [
       getOnPitchPlayerIdsAtMinute,
       editEffectiveMinute,
@@ -625,9 +632,9 @@ function AdminMatchPage() {
 
   const editPlayerInOptions = useMemo(() => {
     return editTeamPlayers.filter(
-      (entry) => !editOnPitchPlayerIds.has(entry.playerId) && !events.some(event => event.type === 'RED_CARD' && event.id !== editingEventId && event.playerId === entry.playerId && (editEffectiveMinute === null || (event.minute ?? 0) < editEffectiveMinute || (event.minute === editEffectiveMinute && event.id < (editingEventId ?? Infinity)))),
+      (entry) => !editOnPitchPlayerIds.has(entry.playerId) && !getOnPitchPlayerIdsAtMinute(editEffectiveMinute, editingEventId).sentOff.has(entry.playerId),
     )
-  }, [editTeamPlayers, editOnPitchPlayerIds, events, editingEventId, editEffectiveMinute])
+  }, [editTeamPlayers, editOnPitchPlayerIds, getOnPitchPlayerIdsAtMinute, editingEventId, editEffectiveMinute])
 
   function getErrorMessage(
 
@@ -705,12 +712,12 @@ const awayPlayers = players.filter(
       let response: Response
       if (role === '') {
         if (!existingEntry) return
-        response = await fetch(`http://localhost:3000/match-squads/${existingEntry.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+        response = await fetch(`${API_URL}/match-squads/${existingEntry.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       } else if (existingEntry) {
-        response = await fetch(`http://localhost:3000/match-squads/${existingEntry.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) })
+        response = await fetch(`${API_URL}/match-squads/${existingEntry.id}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) })
       } else {
         if (player.teamId === null) throw new Error('Player does not belong to a team.')
-        response = await fetch('http://localhost:3000/match-squads', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, teamId: player.teamId, playerId: player.id, role }) })
+        response = await fetch(API_URL + '/match-squads', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, teamId: player.teamId, playerId: player.id, role }) })
       }
       if (response.status === 401) { localStorage.removeItem('accessToken'); navigate('/admin/login'); return }
       if (response.status === 403) throw new Error('You do not have permission to edit this match squad.')
@@ -780,7 +787,7 @@ const awayPlayers = players.filter(
 
       const response = await fetch(
 
-        `http://localhost:3000/matches/${id}/status`,
+        `${API_URL}/matches/${id}/status`,
 
         {
 
@@ -988,7 +995,7 @@ const awayPlayers = players.filter(
       setError(null)
 
       const response = await fetch(
-        `http://localhost:3000/match-events/${eventId}`,
+        `${API_URL}/match-events/${eventId}`,
         {
           method: 'PATCH',
           headers: {
@@ -1057,7 +1064,7 @@ const awayPlayers = players.filter(
       setError(null)
 
       const response = await fetch(
-        `http://localhost:3000/match-events/${eventId}`,
+        `${API_URL}/match-events/${eventId}`,
         {
           method: 'DELETE',
           headers: {
@@ -1212,7 +1219,7 @@ const awayPlayers = players.filter(
 
       const response = await fetch(
 
-        'http://localhost:3000/match-events',
+        API_URL + '/match-events',
 
         {
 
@@ -1430,7 +1437,7 @@ const awayPlayers = players.filter(
 
       const response = await fetch(
 
-        'http://localhost:3000/match-events',
+        API_URL + '/match-events',
 
         {
 
@@ -1626,7 +1633,7 @@ const awayPlayers = players.filter(
 
       const response = await fetch(
 
-        'http://localhost:3000/match-events',
+        API_URL + '/match-events',
 
         {
 
@@ -1814,7 +1821,7 @@ const awayPlayers = players.filter(
 
       case 'YELLOW_CARD':
 
-        return 'Yellow card'
+        return event.isSecondYellow ? 'Second yellow - sent off' : 'Yellow card'
 
 
 
@@ -3203,7 +3210,7 @@ const awayPlayers = players.filter(
                                   <option value="">
                                     {editEventType === 'GOAL' ? 'No scorer / unknown' : 'Select player'}
                                   </option>
-                                  {(editEventType === 'GOAL' ? editPlayerOptions : editTeamPlayers.filter(entry => !events.some(event => event.type === 'RED_CARD' && event.id !== editingEventId && event.playerId === entry.playerId && (editEffectiveMinute === null || (event.minute ?? 0) < editEffectiveMinute || (event.minute === editEffectiveMinute && event.id < (editingEventId ?? Infinity)))))).map((entry) => (
+                                  {(editEventType === 'GOAL' ? editPlayerOptions : editTeamPlayers.filter(entry => !getOnPitchPlayerIdsAtMinute(editEffectiveMinute, editingEventId).sentOff.has(entry.playerId))).map((entry) => (
                                       <option key={entry.id} value={entry.playerId}>
                                         {entry.player.firstName} {entry.player.lastName} (#{entry.playerId})
                                       </option>

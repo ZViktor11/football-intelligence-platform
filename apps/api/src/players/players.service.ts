@@ -52,6 +52,7 @@ export class PlayersService {
           select: {
             type: true,
             isOwnGoal: true,
+            matchId: true,
           },
         },
         assistEvents: {
@@ -88,9 +89,14 @@ export class PlayersService {
       (event) => event.type === 'YELLOW_CARD',
     ).length;
 
-    const redCards = player.matchEvents.filter(
-      (event) => event.type === 'RED_CARD',
-    ).length;
+    const cardsByMatch = new Map<number, { yellows: number; red: boolean }>();
+    for (const event of player.matchEvents) {
+      const cards = cardsByMatch.get(event.matchId) ?? { yellows: 0, red: false };
+      if (event.type === 'YELLOW_CARD') cards.yellows++;
+      if (event.type === 'RED_CARD') cards.red = true;
+      cardsByMatch.set(event.matchId, cards);
+    }
+    const redCards = [...cardsByMatch.values()].filter(cards => cards.red || cards.yellows >= 2).length;
 
     const assists = player.assistEvents.length;
 
@@ -193,11 +199,12 @@ export class PlayersService {
         event.playerId === id,
     ).length;
 
-    const redCards = match.events.filter(
+    const directRed = match.events.some(
       (event) =>
         event.type === 'RED_CARD' &&
         event.playerId === id,
-    ).length;
+    );
+    const redCards = directRed || yellowCards >= 2 ? 1 : 0;
 
     const isHomeTeam =
       match.homeTeamId === appearance.teamId;

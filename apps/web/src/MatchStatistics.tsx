@@ -1,3 +1,4 @@
+import { API_URL } from './config'
 import { useState } from 'react'
 
 export type Statistics = {
@@ -27,7 +28,7 @@ export default function MatchStatistics({ match, token, onChanged, onSessionExpi
     if (!token || busy) return
     setBusy(true); setError('')
     try {
-      const response = await fetch('http://localhost:3000/matches/' + match.id + '/statistics/' + action, {
+      const response = await fetch(API_URL + '/matches/' + match.id + '/statistics/' + action, {
         method: 'PATCH', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(data)
       })
       if (response.status === 401) { onSessionExpired?.(); return }

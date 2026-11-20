@@ -9,7 +9,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { MatchStatus, Role } from '../../generated/prisma/client';
+import { Role } from '../../generated/prisma/client';
+import { MatchFiltersDto } from './dto/match-filters.dto';
 
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
@@ -38,16 +39,8 @@ export class MatchesController {
   }
 
   @Get()
-  findAll(
-    @Query('seasonId') seasonId?: string,
-    @Query('teamId') teamId?: string,
-    @Query('status') status?: MatchStatus,
-  ) {
-    return this.matchesService.findAll({
-      seasonId: seasonId ? Number(seasonId) : undefined,
-      teamId: teamId ? Number(teamId) : undefined,
-      status,
-    });
+  findAll(@Query() filters: MatchFiltersDto) {
+    return this.matchesService.findAll(filters);
   }
 
   @Get(':id')

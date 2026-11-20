@@ -1,0 +1,61 @@
+name: Verify platform
+on:
+  push:
+  pull_request:
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test
+          POSTGRES_DB: football_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      DATABASE_URL: postgresql://postgres:ci-test@localhost:5432/football_ci
+      JWT_SECRET: ci-local-only-test-secret-not-for-production
+      RUN_DB_INTEGRATION: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm test -- --runInBand
+      - run: npm run test:e2e -- --runInBand
+  clients:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [web, mobile]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - if: matrix.app == 'web'
+        run: npm run build && npm run lint
+      - if: matrix.app == 'mobile'
+        run: npx tsc --noEmit && npx expo lint && npx expo export --platform android

@@ -1,3 +1,4 @@
+import { API_URL } from './config'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -26,7 +27,7 @@ export default function AdminMatchesPage() {
 
     async function loadMatches() {
       try {
-        const response = await fetch('http://localhost:3000/matches')
+        const response = await fetch(API_URL + '/matches')
 
         if (!response.ok) {
           throw new Error('Failed to load matches')

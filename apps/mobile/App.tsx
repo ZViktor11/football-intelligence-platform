@@ -38,6 +38,7 @@ type Player = {
 };
 
 type MatchEvent = {
+  isSecondYellow?: boolean;
   id: number;
   type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
   minute: number | null;
@@ -347,7 +348,7 @@ export function MatchDetail({
       case 'GOAL':
         return `${event.isOwnGoal ? 'Own goal' : 'Goal'} - ${playerName}`;
       case 'YELLOW_CARD':
-        return `Yellow card - ${playerName}`;
+        return `${event.isSecondYellow ? 'Second yellow - sent off' : 'Yellow card'} - ${playerName}`;
       case 'RED_CARD':
         return `Red card - ${playerName}`;
       case 'SUBSTITUTION': {

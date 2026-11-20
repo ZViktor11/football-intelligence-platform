@@ -1,3 +1,4 @@
+import { API_URL } from './config'
 import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
@@ -73,6 +74,7 @@ type EventPlayer = {
 }
 
 type MatchEvent = {
+  isSecondYellow?: boolean
   id: number
   type: 'GOAL' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION'
   minute: number | null
@@ -339,7 +341,7 @@ function MatchListPage() {
 
     async function loadMatches() {
       try {
-        const response = await fetch('http://localhost:3000/matches')
+        const response = await fetch(API_URL + '/matches')
 
         if (!response.ok) {
           throw new Error(`API request failed: ${response.status}`)
@@ -495,9 +497,9 @@ function MatchDetailPage() {
 
         const [matchResponse, eventsResponse, squadResponse] =
           await Promise.all([
-            fetch(`http://localhost:3000/matches/${id}`),
-            fetch(`http://localhost:3000/match-events/match/${id}`),
-            fetch(`http://localhost:3000/match-squads/match/${id}`),
+            fetch(`${API_URL}/matches/${id}`),
+            fetch(`${API_URL}/match-events/match/${id}`),
+            fetch(`${API_URL}/match-squads/match/${id}`),
           ])
 
         if (!matchResponse.ok) {
@@ -552,8 +554,8 @@ function MatchDetailPage() {
     async function refreshLiveData() {
       try {
         const [matchResponse, eventsResponse] = await Promise.all([
-          fetch(`http://localhost:3000/matches/${id}`),
-          fetch(`http://localhost:3000/match-events/match/${id}`),
+          fetch(`${API_URL}/matches/${id}`),
+          fetch(`${API_URL}/match-events/match/${id}`),
         ])
 
         if (!matchResponse.ok || !eventsResponse.ok) {
@@ -596,7 +598,7 @@ function MatchDetailPage() {
         return event.isOwnGoal ? 'Own goal' : 'Goal'
 
       case 'YELLOW_CARD':
-        return 'Yellow card'
+        return event.isSecondYellow ? 'Second yellow - sent off' : 'Yellow card'
 
       case 'RED_CARD':
         return 'Red card'
@@ -773,7 +775,7 @@ function MatchDetailPage() {
                       >
                         <span className="event-icon">
                           {event.type === 'GOAL' && 'G'}
-                          {event.type === 'YELLOW_CARD' && 'Y'}
+                          {event.type === 'YELLOW_CARD' && (event.isSecondYellow ? 'Y/R' : 'Y')}
                           {event.type === 'RED_CARD' && 'R'}
                           {event.type === 'SUBSTITUTION' && 'S'}
                         </span>
@@ -943,7 +945,7 @@ function CompetitionStandings({ competition }: { competition: CompetitionWithSea
       setError(null)
       try {
         const response = await fetch(
-          `http://localhost:3000/seasons/${selectedSeasonId}/standings`,
+          `${API_URL}/seasons/${selectedSeasonId}/standings`,
         )
         if (!response.ok) throw new Error(`Standings request failed: ${response.status}`)
         const data: Standing[] = await response.json()
@@ -1030,7 +1032,7 @@ function CompetitionsPage() {
       try {
         setLoading(true)
         setError(null)
-        const response = await fetch('http://localhost:3000/competitions' + (id ? '/' + id : ''))
+        const response = await fetch(API_URL + '/competitions' + (id ? '/' + id : ''))
         if (!response.ok) throw new Error(`API request failed: ${response.status}`)
         const data: CompetitionWithSeasons | CompetitionWithSeasons[] = await response.json()
         if (!cancelled) setCompetitions(Array.isArray(data) ? data : [data])
@@ -1073,7 +1075,7 @@ function TeamsPage() {
         setError(null)
 
         const response = await fetch(
-          'http://localhost:3000/teams',
+          API_URL + '/teams',
         )
 
         if (!response.ok) {
@@ -1185,7 +1187,7 @@ function PlayersPage() {
         setError(null)
 
         const response = await fetch(
-          'http://localhost:3000/players',
+          API_URL + '/players',
         )
 
         if (!response.ok) {
@@ -1305,8 +1307,8 @@ function PlayerDetailPage() {
 
         const [playerResponse, historyResponse] =
           await Promise.all([
-            fetch(`http://localhost:3000/players/${id}`),
-            fetch(`http://localhost:3000/players/${id}/matches`),
+            fetch(`${API_URL}/players/${id}`),
+            fetch(`${API_URL}/players/${id}/matches`),
           ])
 
         if (!playerResponse.ok) {
@@ -1613,9 +1615,9 @@ function TeamDetailPage() {
 
         const [teamResponse, matchesResponse, historyResponse] =
           await Promise.all([
-            fetch(`http://localhost:3000/teams/${id}`),
-            fetch(`http://localhost:3000/matches?teamId=${id}`),
-            fetch(`http://localhost:3000/teams/${id}/matches`),
+            fetch(`${API_URL}/teams/${id}`),
+            fetch(`${API_URL}/matches?teamId=${id}`),
+            fetch(`${API_URL}/teams/${id}/matches`),
           ])
 
         if (!teamResponse.ok) {

@@ -10,6 +10,7 @@ import { MatchAccessGuard } from './match-access.guard';
 import { CompetitionAccessGuard } from './competition-access.guard';
 import { FavoritesController } from './favorites.controller';
 import { CompetitionCreateAccessGuard } from './competition-create-access.guard';
+import { LoginRateLimitGuard } from './login-rate-limit.guard';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CompetitionCreateAccessGuard } from './competition-create-access.guard'
     }),
   ],
   providers: [
+    LoginRateLimitGuard,
     AuthService,
     AuthGuard,
     RolesGuard,

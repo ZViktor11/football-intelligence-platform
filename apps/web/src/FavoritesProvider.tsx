@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { FavoritesContext } from './favorites-context'
 import type { Favorite, FavoriteKind } from './favorites-context'
 
-const API = 'http://localhost:3000'
+import { API_URL as API } from './config'
 const TOKEN_KEY = 'viewerToken'
 
 export default function FavoritesProvider({ children }: { children: ReactNode }) {

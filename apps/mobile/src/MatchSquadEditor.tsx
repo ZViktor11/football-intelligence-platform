@@ -93,7 +93,7 @@ export default function MatchSquadEditor({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
 
@@ -105,9 +105,11 @@ export default function MatchSquadEditor({
         ),
       ]);
 
+      if (signal?.aborted) return;
       setPlayers(allPlayers);
       setSquad(entries);
     } catch (error) {
+      if (signal?.aborted) return;
       if (error instanceof SessionExpiredError) {
         onSessionExpired();
         return;
@@ -118,12 +120,16 @@ export default function MatchSquadEditor({
         error instanceof Error ? error.message : 'Unknown error',
       );
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [matchId, token, onSessionExpired]);
 
   useEffect(() => {
-    void load();
+    const controller = new AbortController();
+    void Promise.resolve().then(() => {
+      if (!controller.signal.aborted) return load(controller.signal);
+    });
+    return () => controller.abort();
   }, [load]);
 
   async function saveRole(playerId: number, role: SquadRole) {

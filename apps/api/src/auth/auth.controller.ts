@@ -16,17 +16,20 @@ import { RegisterDto } from './dto/register.dto';
 import { Role } from '../../generated/prisma/client';
 import { Roles } from './roles.decorator';
 import { RolesGuard } from './roles.guard';
+import { LoginRateLimitGuard } from './login-rate-limit.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @UseGuards(LoginRateLimitGuard)
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
+  @UseGuards(LoginRateLimitGuard)
   @HttpCode(200)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);

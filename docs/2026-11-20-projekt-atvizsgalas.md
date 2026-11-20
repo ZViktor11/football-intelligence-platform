@@ -81,3 +81,20 @@ Az API fennmaradó auditbejegyzései a fejlesztői NestJS CLI, glob és minimatc
 Ellenőrzés: 199/199 backend teszt, 23/23 tesztcsomag, backend build, Prisma Client generálás és sémavalidáció, web build és ESLint, mobil TypeScript, Expo függőségellenőrzés és Android export sikeres. Nincs új adatbázis-migráció. A tényleges PostgreSQL-adatbázissal és fizikai mobilkészülékkel történő regressziós ellenőrzés külön szükséges.
 
 A mobil lint változatlanul 4 korábban ismert hibát és 5 figyelmeztetést jelez; ezek külön kódminőségi feladatot képeznek. A lint ideiglenesen létrehozott konfigurációja és csomagjai nem részei ennek a frissítésnek.
+
+## Utókövetés – integritás, konfiguráció és automatizált ellenőrzés
+
+A `e234cb5` verzióra épülő fejlesztések lezárják a korábbi P1 alkalmazáslogikai feladatokat:
+
+- A második sárga lap automatikusan kiállításnak számít. Az események tárolási típusa változatlan, a második sárga megjelölése származtatott (`isSecondYellow`), ezért nincs külön piros esemény duplikációja. A játékos statisztikáiban mérkőzésenként egy kiállítás számít. A web és a mobil a kiválasztott percig ismét lejátssza az eseményeket.
+- Az események létrehozása, módosítása és törlése szerializálható Prisma tranzakcióban történik, a teljes időbeli eseménytörténet ellenőrzésével, eredményszámítással és auditnaplóval. Azonos percben az eseményazonosító dönt a sorrendről. Ütközés esetén korlátozott újrapróbálkozás történik, ismételt tranzakciós konfliktusnál HTTP 409 válasz érkezik.
+- Hibás korábbi csere vagy lap javítása nem hagyhat hátra érvénytelen eseményt. Ha a régi adatokban a második sárga után külön piros lapot is felvettek, vagy egyéb konzisztenciahiba van, a fölösleges vagy függő eseményeket kell először javítani. A meglévő adatokat nem módosítja automatikus migráció.
+- A bejelentkezés és regisztráció egy API-példányon IP-címenként összesen 10 kérés/perc korlátot kapott. A JWT titok és az adatbáziscím hiánya induláskor egyértelmű hibát ad. A mérkőzésszűrők DTO-validációja kiszűri a hibás azonosítókat és státuszokat.
+- A web API-címe és az API CORS-beállítása konfigurálható. A helyi Docker PostgreSQL portja csak a loopback címre van kötve. A mintakörnyezeti fájlok és a README elválasztják a helyi és éles telepítést.
+- A demóadat-szkript négy csapatot, 56 játékost, négy mérkőzést és kereteket hoz létre, ismételhető, a meglévő demóadmin jelszavát nem írja felül.
+- A mobilon javult az automatikus és kézzel megadott mérkőzésperc kezelésének állapota; a lint 0 hibát és 0 figyelmeztetést jelez. A lint konfigurációja és fejlesztői függőségei bekerültek a repositoryba.
+- GitHub Actions ellenőrzés készült PostgreSQL 16 szolgáltatással, API tesztekkel, web build/lint és mobil típusellenőrzés/lint/Android export lépésekkel.
+
+Helyi ellenőrzés: 219/219 unit és mockolt HTTP-teszt (26 tesztcsomag), valamint 3/3 adatbázisos HTTP-teszt (2 tesztcsomag) PostgreSQL-kompatibilis PGlite adatbázison, valós Prisma és NestJS használatával. A teszt igazolja a két párhuzamos csere közül az egyik elutasítását, a hibás eseménytörlés visszagörgetését, a második sárgás kiállítást és kedvencek elkülönítését. A demószkript kétszeri futtatása azonos mérkőzésazonosítókat adott. A backend build, web build és lint, mobil TypeScript, lint, Expo-kompatibilitás és Android export sikeres. Az új mobil lint függőségekkel a teljes és production audit változatlanul 6 bejegyzést mutat. A natív PostgreSQL 16 CI futása az első push után ellenőrizhető; fizikai telefonos regresszió továbbra is szükséges.
+
+Nyitott üzemeltetési feladatok: a fennmaradt Expo SDK- és fejlesztői függőségi auditbejegyzések kezelése kompatibilis verziókkal, a GitHub Actions tényleges futásának ellenőrzése, éles környezetben erős adatbázis-hitelesítés, HTTPS és több API-példány esetén megosztott rate limit. Ez a változtatás nem állítja, hogy teljes körű biztonsági audit vagy éles telepítés történt.

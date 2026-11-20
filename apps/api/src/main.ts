@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -5,9 +6,15 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
+  if (!process.env.JWT_SECRET?.trim()) {
+    throw new Error('JWT_SECRET must be configured before starting the API');
+  }
+  if (!process.env.DATABASE_URL?.trim()) {
+    throw new Error('DATABASE_URL must be configured before starting the API');
+  }
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map(origin => origin.trim()),
   });
   app.useGlobalPipes(
     new ValidationPipe({

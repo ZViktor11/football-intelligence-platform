@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -68,26 +68,15 @@ export function RecordSubstitution({
   const [teamId, setTeamId] = useState(homeTeam.id);
   const [playerOutId, setPlayerOutId] = useState<number | null>(null);
   const [playerInId, setPlayerInId] = useState<number | null>(null);
-  const [minute, setMinute] = useState(
-    currentMinute !== null ? String(currentMinute) : '',
-  );
+  const [editedMinute, setEditedMinute] = useState<{ matchId: number; value: string } | null>(null);
+  const minute = editedMinute?.matchId === matchId
+    ? editedMinute.value
+    : currentMinute !== null ? String(currentMinute) : '';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const minuteEdited = useRef(false);
-
-  useEffect(() => {
-    minuteEdited.current = false;
-    setMinute(currentMinute !== null ? String(currentMinute) : '');
-  }, [matchId]);
-
-  useEffect(() => {
-    if (!minuteEdited.current) {
-      setMinute(currentMinute !== null ? String(currentMinute) : '');
-    }
-  }, [currentMinute]);
 
   useEffect(() => {
     let active = true;
@@ -159,8 +148,7 @@ export function RecordSubstitution({
   }
 
   function handleMinuteChange(value: string) {
-    minuteEdited.current = true;
-    setMinute(value);
+    setEditedMinute({ matchId, value });
     setError(null);
     setSuccess(null);
   }
@@ -204,7 +192,7 @@ export function RecordSubstitution({
 
       setPlayerOutId(null);
       setPlayerInId(null);
-      minuteEdited.current = false;
+      setEditedMinute(null);
 
       await onSaved();
       setSuccess('Substitution recorded successfully.');

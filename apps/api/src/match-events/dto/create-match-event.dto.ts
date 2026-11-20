@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, ValidateIf, Min, Max } from 'class-validator';
 
 import { MatchEventType } from '../../../generated/prisma/client';
 
@@ -6,39 +6,47 @@ export class CreateMatchEventDto {
   @IsEnum(MatchEventType)
   type: MatchEventType;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(120)
   minute?: number;
 
   @IsInt()
+  @Min(1)
   matchId: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
+  @Min(1)
   teamId?: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
+  @Min(1)
   playerId?: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
+  @Min(1)
   assistPlayerId?: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
+  @Min(1)
   staffMemberId?: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
+  @Min(1)
   playerOutId?: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
+  @Min(1)
   playerInId?: number;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   isOwnGoal?: boolean;
 }

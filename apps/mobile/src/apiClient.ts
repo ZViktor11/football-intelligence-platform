@@ -1,4 +1,4 @@
-﻿export class SessionExpiredError extends Error {
+export class SessionExpiredError extends Error {
   constructor() {
     super('Session expired. Please sign in again.');
     this.name = 'SessionExpiredError';

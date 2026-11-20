@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -55,25 +55,14 @@ export function RecordCard({
   const [teamId, setTeamId] = useState(homeTeam.id);
   const [playerId, setPlayerId] = useState<number | null>(null);
   const [cardType, setCardType] = useState<CardType>('YELLOW_CARD');
-  const [minute, setMinute] = useState(
-    currentMinute !== null ? String(currentMinute) : '',
-  );
+  const [editedMinute, setEditedMinute] = useState<{ matchId: number; value: string } | null>(null);
+  const minute = editedMinute?.matchId === matchId
+    ? editedMinute.value
+    : currentMinute !== null ? String(currentMinute) : '';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const minuteEdited = useRef(false);
-
-  useEffect(() => {
-    minuteEdited.current = false;
-    setMinute(currentMinute !== null ? String(currentMinute) : '');
-  }, [matchId]);
-
-  useEffect(() => {
-    if (!minuteEdited.current) {
-      setMinute(currentMinute !== null ? String(currentMinute) : '');
-    }
-  }, [currentMinute]);
 
   const { sentOff } = pitchState(squad, events, Number(minute));
   const teamPlayers = players.filter(
@@ -88,8 +77,7 @@ export function RecordCard({
   }
 
   function handleMinuteChange(value: string) {
-    minuteEdited.current = true;
-    setMinute(value);
+    setEditedMinute({ matchId, value });
     setError(null);
     setSuccess(null);
   }
@@ -130,7 +118,7 @@ export function RecordCard({
       });
 
       setPlayerId(null);
-      minuteEdited.current = false;
+      setEditedMinute(null);
       await onSaved();
       setSuccess('Card recorded successfully.');
     } catch (err) {

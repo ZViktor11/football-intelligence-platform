@@ -14,11 +14,16 @@ export function pitchState(
 ) {
   const onPitch = new Set(squad.filter(p => p.role === 'STARTER').map(p => p.playerId));
   const sentOff = new Set<number>();
+  const yellows = new Map<number, number>();
   for (const event of events.filter(e => (e.minute ?? 0) <= minute)
     .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0) || a.id - b.id)) {
-    if (event.type === 'RED_CARD' && event.playerId != null) {
-      sentOff.add(event.playerId);
-      onPitch.delete(event.playerId);
+    if ((event.type === 'RED_CARD' || event.type === 'YELLOW_CARD') && event.playerId != null) {
+      const count = (yellows.get(event.playerId) ?? 0) + 1;
+      if (event.type === 'YELLOW_CARD') yellows.set(event.playerId, count);
+      if (event.type === 'RED_CARD' || count >= 2) {
+        sentOff.add(event.playerId);
+        onPitch.delete(event.playerId);
+      }
     } else if (event.type === 'SUBSTITUTION') {
       if (event.playerOutId != null) onPitch.delete(event.playerOutId);
       if (event.playerInId != null && !sentOff.has(event.playerInId)) onPitch.add(event.playerInId);

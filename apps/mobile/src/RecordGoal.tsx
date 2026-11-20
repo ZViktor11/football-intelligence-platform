@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -75,27 +75,14 @@ export function RecordGoal({
 }: RecordGoalProps) {
   const [teamId, setTeamId] = useState<number>(homeTeam.id);
   const [playerId, setPlayerId] = useState<number | null>(null);
-  const [minute, setMinute] = useState(
-    currentMinute !== null ? String(currentMinute) : '',
-  );
+  const [editedMinute, setEditedMinute] = useState<{ matchId: number; value: string } | null>(null);
+  const minute = editedMinute?.matchId === matchId
+    ? editedMinute.value
+    : currentMinute !== null ? String(currentMinute) : '';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // A kézzel megadott percet nem írjuk felül
-  // a mérkőzés automatikus frissítésekor.
-  const minuteEdited = useRef(false);
-
-  useEffect(() => {
-    minuteEdited.current = false;
-    setMinute(currentMinute !== null ? String(currentMinute) : '');
-  }, [matchId]);
-
-  useEffect(() => {
-    if (!minuteEdited.current) {
-      setMinute(currentMinute !== null ? String(currentMinute) : '');
-    }
-  }, [currentMinute]);
 
   const parsedMinute = Number(minute.trim());
   const validMinute =
@@ -122,8 +109,7 @@ export function RecordGoal({
   }
 
   function handleMinuteChange(value: string) {
-    minuteEdited.current = true;
-    setMinute(value);
+    setEditedMinute({ matchId, value });
     setError(null);
     setSuccess(null);
   }
@@ -165,7 +151,7 @@ export function RecordGoal({
       });
 
       setPlayerId(null);
-      minuteEdited.current = false;
+      setEditedMinute(null);
       await onSaved();
       setSuccess('Goal recorded successfully.');
     } catch (err) {
