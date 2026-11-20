@@ -5,6 +5,8 @@ import AdminMatchesPage from './AdminMatchesPage'
 import AdminMatchPage from './AdminMatchPage'
 import AdminCreateMatchPage from './AdminCreateMatchPage'
 import FavoritesPage from './FavoritesPage'
+import FavoriteStar from './FavoriteStar'
+import { useFavorites } from './favorites-context'
 import MatchStatistics from './MatchStatistics'
 import type { Statistics } from './MatchStatistics'
 import './App.css'
@@ -693,11 +695,12 @@ function MatchDetailPage() {
                 <span>{match.season.name}</span>
               </div>
 
-              <span
-                className={`match-status match-status-${match.status.toLowerCase()}`}
-              >
-                {match.status.replace('_', ' ')}
-              </span>
+              <div className="favorite-heading-actions">
+                <span className={`match-status match-status-${match.status.toLowerCase()}`}>
+                  {match.status.replace('_', ' ')}
+                </span>
+                <FavoriteStar kind="match" id={match.id} name={match.homeTeam.name + ' vs ' + match.awayTeam.name} />
+              </div>
             </div>
 
             <div className="match-content">
@@ -966,7 +969,10 @@ function CompetitionStandings({ competition }: { competition: CompetitionWithSea
       <div className="section-heading">
         <div>
           <p className="eyebrow">Competition</p>
-          <h2>{competition.name}</h2>
+          <div className="favorite-title">
+            <h2>{competition.name}</h2>
+            <FavoriteStar kind="competition" id={competition.id} name={competition.name} />
+          </div>
           {competition.description && <p>{competition.description}</p>}
         </div>
       </div>
@@ -1369,9 +1375,10 @@ function PlayerDetailPage() {
           {player.position ?? 'Player'}
         </p>
 
-        <h1>
-          {player.firstName} {player.lastName}
-        </h1>
+        <div className="favorite-title">
+          <h1>{player.firstName} {player.lastName}</h1>
+          <FavoriteStar kind="player" id={player.id} name={player.firstName + ' ' + player.lastName} />
+        </div>
 
         <p className="hero-description">
           {player.team?.name ?? 'No current team'}
@@ -1694,7 +1701,10 @@ function TeamDetailPage() {
           {team.season.competition.name}
         </p>
 
-        <h1>{team.name}</h1>
+        <div className="favorite-title">
+          <h1>{team.name}</h1>
+          <FavoriteStar kind="team" id={team.id} name={team.name} />
+        </div>
 
         <p className="hero-description">
           {team.city && `${team.city} · `}
@@ -1908,9 +1918,15 @@ function TeamDetailPage() {
 }
 
 function App() {
+  const { token, error, ready, busy, reload } = useFavorites()
   return (
     <div className="app">
       <Header />
+      {error && <div className="favorite-error" role="alert">
+        <span>{error}</span>
+        {token && !ready && <button disabled={busy} onClick={reload}>Retry</button>}
+        {!token && <Link to="/favorites">Sign in</Link>}
+      </div>}
 
       <Routes>
         <Route path="/favorites" element={<FavoritesPage />} />

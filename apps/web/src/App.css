@@ -614,6 +614,60 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.favorite-title,
+.favorite-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.favorite-title h1,
+.favorite-title h2 {
+  margin: 0;
+}
+
+button.favorite-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #cbd7cf;
+  border-radius: 50%;
+  background: #fff;
+  color: #735619;
+  font-size: 30px;
+  line-height: 1;
+}
+
+button.favorite-star:hover:not(:disabled) {
+  background: #fff5d6;
+  border-color: #b48316;
+}
+
+button.favorite-star-saved {
+  color: #a36b00;
+  border-color: #d8a540;
+  background: #fff5d6;
+}
+
+.favorite-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px auto;
+  padding: 12px 16px;
+  max-width: 1100px;
+  background: #fff3e8;
+  color: #762d0a;
+  border: 1px solid #efc9ac;
+  border-radius: 10px;
+}
+
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,

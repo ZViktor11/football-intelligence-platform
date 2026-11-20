@@ -44,3 +44,11 @@ Prisma migráció: `20261120120000_add_favorites_and_match_statistics`. A meglé
 6. Mobil: az `apps/mobile` könyvtárban `npx expo start --lan`. Ellenőrizd ugyanazokat a műveleteket, valamint hogy az alkalmazás bezárása és újranyitása után az adatok megmaradnak.
 
 Az elkülönített adatbázisos és automatikus ellenőrzések megtörténtek, de a fizikai eszközön végzett kézi mobilos használhatósági teszt még hátravan.
+
+## Kiegészítés – kedvencek közvetlen megjelölése a webes felületen
+
+- A csapat, játékos és mérkőzés részletező oldalán, valamint a bajnokságok paneljein bejelentkezett nézőként üres vagy kitöltött csillag jelzi a kedvenc állapotot.
+- A csillag egyetlen kattintással hozzáadja vagy eltávolítja az elemet. A Favorites oldal és a részletező oldalak közös állapotot használnak, amelyet a szerver adatai alapján frissítünk.
+- Kijelentkezve a csillagok nem láthatók; lejárt munkamenet esetén a felület új bejelentkezést kér. A gombok billentyűzettel és képernyőolvasóval használhatók.
+- Nincs új adatbázis-migráció vagy API-végpont; a meglévő kedvencek végpontjai változatlanok.
+- Ellenőrzés: web build, ESLint és DOM-integrációs próba valós teszt-API-val (mind a négy típus, mentés, újratöltés, lista szinkronja, eltávolítás, kijelentkezés).
