@@ -78,6 +78,7 @@ export class AuthService {
 
     return {
       accessToken,
+      roles: await this.getUserRoles(user.id),
       user: {
         id: user.id,
         email: user.email,

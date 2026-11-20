@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { RolesGuard } from './roles.guard';
 import { MatchAccessGuard } from './match-access.guard';
 import { CompetitionAccessGuard } from './competition-access.guard';
+import { FavoritesController } from './favorites.controller';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { CompetitionAccessGuard } from './competition-access.guard';
     MatchAccessGuard,
     CompetitionAccessGuard,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, FavoritesController],
   exports: [
     AuthService,
     AuthGuard,

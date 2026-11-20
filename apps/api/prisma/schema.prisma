@@ -22,6 +22,7 @@ model User {
   matchReports          MatchReport[]          @relation("MatchReportAuthor")
   reviewedMatchReports  MatchReport[]          @relation("MatchReportReviewer")
   auditLogs             AuditLog[]
+  favorites             Favorite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -64,6 +65,7 @@ model Competition {
 
   seasons         Season[]
   roleAssignments RoleAssignment[]
+  favorites       Favorite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,6 +105,7 @@ model Team {
   staffMembers      StaffMember[]
   matchEvents       MatchEvent[]
   matchSquadEntries MatchSquadPlayer[]
+  favorites         Favorite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -123,6 +126,7 @@ model Player {
   substitutionOutEvents MatchEvent[]       @relation("SubstitutionPlayerOut")
   substitutionInEvents  MatchEvent[]       @relation("SubstitutionPlayerIn")
   matchSquadEntries     MatchSquadPlayer[]
+  favorites             Favorite[]
 
   teamId Int?
   team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
@@ -174,9 +178,45 @@ model Match {
   squadPlayers          MatchSquadPlayer[]
   reports               MatchReport[]
   auditLogs             AuditLog[]
+  favorites             Favorite[]
+
+  shotsOnTargetEnabled Boolean         @default(false)
+  possessionEnabled    Boolean         @default(false)
+  homeShotsOnTarget    Int             @default(0)
+  awayShotsOnTarget    Int             @default(0)
+  homePossessionMs     Int             @default(0)
+  awayPossessionMs     Int             @default(0)
+  possessionSide       PossessionSide?
+  possessionStartedAt  DateTime?
+  statisticsVersion    Int             @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Favorite {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId        Int?
+  team          Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId      Int?
+  player        Player?      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  competitionId Int?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  matchId       Int?
+  match         Match?       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@unique([userId, teamId])
+  @@unique([userId, playerId])
+  @@unique([userId, competitionId])
+  @@unique([userId, matchId])
+}
+
+enum PossessionSide {
+  HOME
+  AWAY
 }
 
 model MatchEvent {

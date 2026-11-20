@@ -20,6 +20,8 @@ import { RecordSubstitution } from './src/RecordSubstitution';
 import MatchSquadEditor from './src/MatchSquadEditor';
 import { LoginScreen } from './src/LoginScreen';
 import type { LoginResponse } from './src/auth';
+import { FavoritesPanel } from './src/FavoritesPanel';
+import { MatchStatistics, type Statistics } from './src/MatchStatistics';
 
 type MatchStatus =
   | 'SCHEDULED'
@@ -53,6 +55,7 @@ type SquadEntry = {
 };
 
 type Match = {
+  statistics?: Statistics;
   id: number;
   events?: MatchEvent[];
   date: string;
@@ -473,6 +476,8 @@ function MatchDetail({
                 </View>
               )}
 
+              {match && <MatchStatistics match={match} token={token} onChanged={loadMatch} onSessionExpired={onSessionExpired} />}
+
               {match &&
                 token &&
                 (match.status === 'LIVE' ||
@@ -605,6 +610,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const expireSession = useCallback(() => { setSession(null); setShowLogin(true); }, []);
 
   const loadMatches = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -660,12 +666,9 @@ export default function App() {
     return (
       <MatchDetail
         matchId={selectedMatchId}
-        token={session?.accessToken ?? null}
+        token={session?.roles?.length ? session.accessToken : null}
         onBack={() => setSelectedMatchId(null)}
-        onSessionExpired={() => {
-          setSession(null);
-          setShowLogin(true);
-        }}
+        onSessionExpired={expireSession}
       />
     );
   }
@@ -697,7 +700,7 @@ export default function App() {
             accessibilityRole="button"
             style={styles.accountButton}
           >
-            <Text style={styles.accountButtonText}>Admin login</Text>
+            <Text style={styles.accountButtonText}>Sign in / Register</Text>
           </Pressable>
         )}
       </View>
@@ -730,7 +733,9 @@ export default function App() {
             )
           }
           ListHeaderComponent={
-            error ? (
+            <>
+            {session && <FavoritesPanel token={session.accessToken} onSessionExpired={expireSession} onMatch={setSelectedMatchId} />}
+            {error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
                 <Pressable
@@ -741,7 +746,8 @@ export default function App() {
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </Pressable>
               </View>
-            ) : null
+            ) : null}
+            </>
           }
         />
       )}

@@ -1,11 +1,22 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MatchStatus } from '../../generated/prisma/client';
+import {
+  Match,
+  MatchStatus,
+  PossessionSide,
+  Prisma,
+} from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMatchDto } from './dto/create-match.dto';
+import {
+  MatchStatisticsSettingsDto,
+  ShotDeltaDto,
+} from './dto/update-match-statistics.dto';
+import { possessionTotals, statisticsView } from './match-statistics';
 
 interface MatchFilters {
   seasonId?: number;
@@ -137,7 +148,86 @@ export class MatchesService {
     return {
       ...match,
       ...clock,
+      statistics: statisticsView(match),
     };
+  }
+
+  private async statisticsMatch(id: number) {
+    const match = await this.prisma.match.findUnique({ where: { id } });
+    if (!match) throw new NotFoundException('Match not found');
+    return match;
+  }
+
+  private async updateWithStatisticsVersion(
+    match: Match,
+    data: Prisma.MatchUpdateInput,
+  ) {
+    try {
+      const updated = await this.prisma.match.update({
+        where: {
+          id: match.id,
+          statisticsVersion: match.statisticsVersion,
+          status: match.status,
+        },
+        data: { ...data, statisticsVersion: { increment: 1 } },
+      });
+      return updated;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new ConflictException('Match changed; refresh and retry');
+      }
+      throw error;
+    }
+  }
+
+  private async updateStatistics(match: Match, data: Prisma.MatchUpdateInput) {
+    return statisticsView(await this.updateWithStatisticsVersion(match, data));
+  }
+
+  async configureStatistics(id: number, settings: MatchStatisticsSettingsDto) {
+    const match = await this.statisticsMatch(id);
+    if (
+      match.status !== MatchStatus.SCHEDULED &&
+      match.status !== MatchStatus.PRE_MATCH
+    ) {
+      throw new BadRequestException(
+        'Statistics settings are locked after kickoff',
+      );
+    }
+    return this.updateStatistics(match, settings);
+  }
+
+  async recordShot(id: number, { side, delta }: ShotDeltaDto) {
+    const match = await this.statisticsMatch(id);
+    if (
+      !match.shotsOnTargetEnabled ||
+      ![MatchStatus.LIVE, MatchStatus.HALF_TIME].some(
+        (status) => status === match.status,
+      )
+    ) {
+      throw new BadRequestException('Shots on target are not editable');
+    }
+    const field =
+      side === PossessionSide.HOME ? 'homeShotsOnTarget' : 'awayShotsOnTarget';
+    if (match[field] + delta < 0)
+      throw new BadRequestException('Shot count cannot be negative');
+    return this.updateStatistics(match, { [field]: { increment: delta } });
+  }
+
+  async recordPossession(id: number, side: PossessionSide | null) {
+    const match = await this.statisticsMatch(id);
+    if (!match.possessionEnabled || match.status !== MatchStatus.LIVE) {
+      throw new BadRequestException('Possession is not editable');
+    }
+    const now = new Date();
+    return this.updateStatistics(match, {
+      ...possessionTotals(match, now),
+      possessionSide: side,
+      possessionStartedAt: side ? now : null,
+    });
   }
 
   async updateStatus(id: number, status: MatchStatus) {
@@ -197,27 +287,30 @@ export class MatchesService {
       status === MatchStatus.FINISHED &&
       match.actualEndedAt === null;
 
-    return this.prisma.match.update({
-      where: { id },
-      data: {
-        status,
-
-        ...(isFirstKickoff && {
-          actualStartedAt: now,
+    return this.updateWithStatisticsVersion(match, {
+      status,
+      ...(match.possessionEnabled &&
+        status !== MatchStatus.LIVE && {
+          ...possessionTotals(match, now),
+          possessionSide: null,
+          possessionStartedAt: null,
         }),
 
-        ...(isHalfTime && {
-          firstHalfEndedAt: now,
-        }),
+      ...(isFirstKickoff && {
+        actualStartedAt: now,
+      }),
 
-        ...(isSecondHalfKickoff && {
-          secondHalfStartedAt: now,
-        }),
+      ...(isHalfTime && {
+        firstHalfEndedAt: now,
+      }),
 
-        ...(isFullTime && {
-          actualEndedAt: now,
-        }),
-      },
+      ...(isSecondHalfKickoff && {
+        secondHalfStartedAt: now,
+      }),
+
+      ...(isFullTime && {
+        actualEndedAt: now,
+      }),
     });
   }
 

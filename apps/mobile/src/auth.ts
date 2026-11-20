@@ -11,7 +11,17 @@ export type AuthUser = {
 export type LoginResponse = {
   accessToken: string;
   user: AuthUser;
+  roles?: { role: string; competitionId: number | null }[];
 };
+
+export async function registerAccount(email: string, password: string) {
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  if (!response.ok) throw new Error(response.status === 409 ? 'Email already registered.' : 'Registration failed. Use a valid email and at least 8 characters.');
+}
 
 export async function login(
   email: string,

@@ -14,6 +14,11 @@ import { MatchStatus, Role } from '../../generated/prisma/client';
 import { MatchesService } from './matches.service';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { UpdateMatchStatusDto } from './dto/update-match-status.dto';
+import {
+  MatchStatisticsSettingsDto,
+  PossessionDto,
+  ShotDeltaDto,
+} from './dto/update-match-statistics.dto';
 
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -60,5 +65,38 @@ export class MatchesController {
     updateMatchStatusDto: UpdateMatchStatusDto,
   ) {
     return this.matchesService.updateStatus(id, updateMatchStatusDto.status);
+  }
+
+  @Patch(':id/statistics/settings')
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
+  @MatchAccess('matchIdParam')
+  configureStatistics(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: MatchStatisticsSettingsDto,
+  ) {
+    return this.matchesService.configureStatistics(id, data);
+  }
+
+  @Patch(':id/statistics/shots')
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
+  @MatchAccess('matchIdParam')
+  recordShot(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: ShotDeltaDto,
+  ) {
+    return this.matchesService.recordShot(id, data);
+  }
+
+  @Patch(':id/statistics/possession')
+  @UseGuards(AuthGuard, RolesGuard, MatchAccessGuard)
+  @Roles(Role.SYSTEM_ADMIN, Role.COMPETITION_ADMIN, Role.MATCH_ADMIN)
+  @MatchAccess('matchIdParam')
+  recordPossession(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: PossessionDto,
+  ) {
+    return this.matchesService.recordPossession(id, data.side ?? null);
   }
 }

@@ -220,6 +220,7 @@ describe('MatchesService', () => {
   describe('match status lifecycle', () => {
     const matchBase = {
       id: 1,
+      statisticsVersion: 0,
       actualStartedAt: null,
       firstHalfEndedAt: null,
       secondHalfStartedAt: null,
@@ -240,9 +241,10 @@ describe('MatchesService', () => {
       await service.updateStatus(1, MatchStatus.PRE_MATCH);
 
       expect(prismaMock.match.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, statisticsVersion: 0, status: MatchStatus.SCHEDULED },
         data: {
           status: MatchStatus.PRE_MATCH,
+          statisticsVersion: { increment: 1 },
         },
       });
     });
@@ -280,10 +282,11 @@ describe('MatchesService', () => {
       await service.updateStatus(1, MatchStatus.LIVE);
 
       expect(prismaMock.match.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, statisticsVersion: 0, status: MatchStatus.PRE_MATCH },
         data: {
           status: MatchStatus.LIVE,
           actualStartedAt: now,
+          statisticsVersion: { increment: 1 },
         },
       });
     });
@@ -309,10 +312,11 @@ describe('MatchesService', () => {
       await service.updateStatus(1, MatchStatus.HALF_TIME);
 
       expect(prismaMock.match.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, statisticsVersion: 0, status: MatchStatus.LIVE },
         data: {
           status: MatchStatus.HALF_TIME,
           firstHalfEndedAt: now,
+          statisticsVersion: { increment: 1 },
         },
       });
     });
@@ -339,10 +343,11 @@ describe('MatchesService', () => {
       await service.updateStatus(1, MatchStatus.LIVE);
 
       expect(prismaMock.match.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, statisticsVersion: 0, status: MatchStatus.HALF_TIME },
         data: {
           status: MatchStatus.LIVE,
           secondHalfStartedAt: now,
+          statisticsVersion: { increment: 1 },
         },
       });
     });
@@ -388,10 +393,11 @@ describe('MatchesService', () => {
       await service.updateStatus(1, MatchStatus.FINISHED);
 
       expect(prismaMock.match.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, statisticsVersion: 0, status: MatchStatus.LIVE },
         data: {
           status: MatchStatus.FINISHED,
           actualEndedAt: now,
+          statisticsVersion: { increment: 1 },
         },
       });
     });

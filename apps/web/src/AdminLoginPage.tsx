@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 
 type LoginResponse = {
   accessToken: string
+  roles: { role: string }[]
   user: {
     id: number
     email: string
@@ -44,6 +45,7 @@ function AdminLoginPage() {
       }
 
       const data: LoginResponse = await response.json()
+      if (!data.roles?.length) throw new Error('This account has no administration permissions')
 
       localStorage.setItem('accessToken', data.accessToken)
 

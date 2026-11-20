@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { login, type LoginResponse } from './auth';
+import { login, registerAccount, type LoginResponse } from './auth';
 
 type LoginScreenProps = {
   onLogin: (session: LoginResponse) => void;
@@ -27,6 +27,7 @@ export function LoginScreen({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [register, setRegister] = useState(false);
 
   async function handleLogin() {
     if (loading) return;
@@ -40,6 +41,7 @@ export function LoginScreen({
     setError(null);
 
     try {
+      if (register) await registerAccount(email, password);
       const session = await login(email, password);
       onLogin(session);
     } catch (err) {
@@ -66,10 +68,10 @@ export function LoginScreen({
             FOOTBALL INTELLIGENCE
           </Text>
 
-          <Text style={styles.title}>Admin login</Text>
+          <Text style={styles.title}>{register ? 'Create account' : 'Sign in'}</Text>
 
           <Text style={styles.subtitle}>
-            Sign in to manage match events.
+            Sign in to follow favorites or manage assigned matches.
           </Text>
 
           <Text style={styles.label}>Email</Text>
@@ -113,9 +115,13 @@ export function LoginScreen({
               <ActivityIndicator color="#0b1220" />
             ) : (
               <Text style={styles.loginButtonText}>
-                Sign in
+                {register ? 'Register' : 'Sign in'}
               </Text>
             )}
+          </Pressable>
+
+          <Pressable onPress={() => { setRegister(!register); setError(null); }} disabled={loading} style={styles.cancelButton}>
+            <Text style={styles.cancelText}>{register ? 'Already have an account?' : 'Create viewer account'}</Text>
           </Pressable>
 
           <Pressable

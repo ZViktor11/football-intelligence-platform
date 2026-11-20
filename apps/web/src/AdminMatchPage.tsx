@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import MatchStatistics from './MatchStatistics'
+import type { Statistics } from './MatchStatistics'
 
 
 
@@ -59,6 +61,7 @@ type Player = {
 
 
 type Match = {
+  statistics?: Statistics
   id: number
   date: string
   status: MatchStatus
@@ -2128,6 +2131,7 @@ const awayPlayers = players.filter(
             <h2>Match controls</h2>
 
             {renderStatusControls()}
+            <MatchStatistics match={match} token={localStorage.getItem('accessToken')} onChanged={loadMatch} onSessionExpired={() => { localStorage.removeItem('accessToken'); navigate('/admin/login') }} />
 
           </div>
 

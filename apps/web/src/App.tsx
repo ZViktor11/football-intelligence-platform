@@ -4,6 +4,9 @@ import AdminLoginPage from './AdminLoginPage'
 import AdminMatchesPage from './AdminMatchesPage'
 import AdminMatchPage from './AdminMatchPage'
 import AdminCreateMatchPage from './AdminCreateMatchPage'
+import FavoritesPage from './FavoritesPage'
+import MatchStatistics from './MatchStatistics'
+import type { Statistics } from './MatchStatistics'
 import './App.css'
 
 type Team = {
@@ -58,6 +61,7 @@ type Match = {
   season: Season
   matchMinute?: number | null
   clockDisplay?: string | null
+  statistics?: Statistics
 }
 
 type EventPlayer = {
@@ -236,6 +240,7 @@ function Header() {
         <Link to="/competitions">Competitions</Link>
         <Link to="/teams">Teams</Link>
         <Link to="/players">Players</Link>
+        <Link to="/favorites">Favorites</Link>
       </nav>
     </header>
   )
@@ -680,6 +685,7 @@ function MatchDetailPage() {
 
       {!loading && !error && match && (
         <>
+          <MatchStatistics match={match} />
           <section className="matches-section match-detail">
             <div className="match-meta">
               <div>
@@ -1907,6 +1913,7 @@ function App() {
       <Header />
 
       <Routes>
+        <Route path="/favorites" element={<FavoritesPage />} />
         <Route
           path="/"
           element={<MatchListPage />}
