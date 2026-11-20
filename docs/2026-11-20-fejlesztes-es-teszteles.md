@@ -52,3 +52,11 @@ Az elkülönített adatbázisos és automatikus ellenőrzések megtörténtek, d
 - Kijelentkezve a csillagok nem láthatók; lejárt munkamenet esetén a felület új bejelentkezést kér. A gombok billentyűzettel és képernyőolvasóval használhatók.
 - Nincs új adatbázis-migráció vagy API-végpont; a meglévő kedvencek végpontjai változatlanok.
 - Ellenőrzés: web build, ESLint és DOM-integrációs próba valós teszt-API-val (mind a négy típus, mentés, újratöltés, lista szinkronja, eltávolítás, kijelentkezés).
+
+## Kiegészítés – mobilos kedvencek, kiállítás és navigáció
+
+- A mobilos kedvencek ugyanazt az API-t használják; az üres és kitöltött csillag a bejelentkezett felhasználó mentett elemeinek állapotát jelzi.
+- A kiállítás a kezdőcsapatból és a mérkőzéseseményekből számított játékosállapotot módosítja. A kiállított játékos a továbbiakban nem szerepelhet gólszerzőként, gólpasszt adóként vagy cserében; a cserepadon kiállított játékos nem léphet pályára. A visszadátumozott kiállítás ütköző későbbi esemény esetén elutasításra kerül.
+- A mérkőzések nyilvános adatlapjairól megnyithatók a csapatok, játékosok és a bajnokság. Mobilon Expo Router segítségével külön adatlapok és visszalépési útvonalak készültek; a kedvencek menüből is elérhetők.
+- Automatizált ellenőrzés: 20 tesztcsomag, 155 sikeres backendteszt, sikeres backend és web build, web ESLint, mobil TypeScript, Android JavaScript-csomag export. A csillagok, piros lap és navigáció működését Viktor a saját eszközén is visszaigazolta. A teljes mobilos ESLint továbbra is jelez korábban meglévő problémákat.
+- E változtatásokhoz nem kellett új adatbázis-migráció; a navigáció miatt új mobilos függőségeket kell telepíteni (`npm ci`).
