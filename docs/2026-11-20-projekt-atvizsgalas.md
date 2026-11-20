@@ -65,3 +65,19 @@ A három P0 megállapítás javítása elkészült a `559bf23` verzió alapján.
 - A nyilvános sportadatok lekérdezési végpontjai továbbra is elérhetők hitelesítés nélkül.
 
 Ellenőrzés: 23 sikeres tesztcsomag, 199/199 teszt (44 új). Ebből hét HTTP-integrációs teszt a tényleges NestJS guardokat és vezérlőket használja, mockolt adatbázissal és tokenellenőrzéssel. A tesztek ellenőrzik a 401, 403, 200 és 201 válaszokat. A backend build sikeres. Nincs új adatbázis-migráció vagy kliensoldali függőség. A többi korábban feltárt kockázat továbbra is nyitott.
+
+## Utókövetés – függőségek frissítése
+
+A `4aa1227` verzió alapján a támogatott főverziókon belül frissültek a függőségek és a lockfájlok, `npm audit fix --force` nélkül. A Prisma CLI, Client és PostgreSQL adapter egységesen 7.10.1 verzióra került. A Prisma konfiguráció Effect-függőségéhez célzott, azonos főverziójú 3.22.5 override tartozik. A mobil Expo SDK 57 maradt (Expo 57.0.33), az SDK-kompatibilis csomagokat az Expo telepítő ellenőrizte.
+
+| Alkalmazás | Korábbi production audit | Új production audit | Új teljes audit |
+| --- | ---: | ---: | ---: |
+| API | 17 | 0 | 3 közepes |
+| Web | 0 | 0 | 0 |
+| Mobil | 14 | 6 | 6 (3 közepes, 3 magas) |
+
+Az API fennmaradó auditbejegyzései a fejlesztői NestJS CLI, glob és minimatch láncot érintik. A mobil fennmaradó bejegyzései az Expo fingerprint/minimatch és az Expo Router/query-string/decode-uri-component lánchoz tartoznak. Az automatikusan javasolt inkompatibilis főverzióváltásokat nem alkalmaztuk; az Expo SDK következő verziójára való átállást külön kell megtervezni és tesztelni. Az audit eredménye nem bizonyítja az alkalmazás teljes biztonságát.
+
+Ellenőrzés: 199/199 backend teszt, 23/23 tesztcsomag, backend build, Prisma Client generálás és sémavalidáció, web build és ESLint, mobil TypeScript, Expo függőségellenőrzés és Android export sikeres. Nincs új adatbázis-migráció. A tényleges PostgreSQL-adatbázissal és fizikai mobilkészülékkel történő regressziós ellenőrzés külön szükséges.
+
+A mobil lint változatlanul 4 korábban ismert hibát és 5 figyelmeztetést jelez; ezek külön kódminőségi feladatot képeznek. A lint ideiglenesen létrehozott konfigurációja és csomagjai nem részei ennek a frissítésnek.
