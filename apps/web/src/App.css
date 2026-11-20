@@ -752,3 +752,11 @@ button:focus-visible {
     margin-right: 0;
   }
 }
+.detail-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.detail-link:hover, .detail-link:focus-visible {
+  color: #38bdf8;
+}

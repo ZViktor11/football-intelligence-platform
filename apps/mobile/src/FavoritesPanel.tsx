@@ -51,7 +51,7 @@ export function FavoriteStar({ state, kind, id }: { state: FavoritesState; kind:
   </Pressable>;
 }
 
-export function FavoritesPanel({ state, onMatch }: { state: FavoritesState; onMatch: (id: number) => void }) {
+export function FavoritesPanel({ state, onOpen }: { state: FavoritesState; onOpen: (kind: Kind, id: number) => void }) {
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState<Target[]>([]);
   const [kind, setKind] = useState<Kind>('team');
@@ -79,14 +79,14 @@ export function FavoritesPanel({ state, onMatch }: { state: FavoritesState; onMa
         const target = type && f[type];
         if (!type || !target) return null;
         return <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ flex: 1, color: '#f8fafc' }} onPress={type === 'match' ? () => onMatch(target.id) : undefined}>{title(target)} ({type})</Text>
+          <Text style={{ flex: 1, color: '#7dd3fc' }} accessibilityRole="link" onPress={() => onOpen(type, target.id)}>{title(target)} ({type})</Text>
           <FavoriteStar state={state} kind={type} id={target.id} />
         </View>;
       })}
       {!favorites.length && <Text style={{ color: '#cbd5e1' }}>No favorites yet.</Text>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{kinds.map(k => button(k === kind ? '✓ ' + k : k, () => { setKind(k); setTargets([]); setQuery(''); }, k))}</View>
       <TextInput value={query} onChangeText={setQuery} placeholder="Search items" placeholderTextColor="#94a3b8" style={{ color: '#fff', padding: 10, backgroundColor: '#1e293b', borderRadius: 8 }} />
-      {targets.filter(t => title(t).toLowerCase().includes(query.toLowerCase())).slice(0, 15).map(t => <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: '#f8fafc' }}>{title(t)}</Text><FavoriteStar state={state} kind={kind} id={t.id} /></View>)}
+      {targets.filter(t => title(t).toLowerCase().includes(query.toLowerCase())).slice(0, 15).map(t => <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ flex: 1, color: '#7dd3fc' }} accessibilityRole="link" onPress={() => onOpen(kind, t.id)}>{title(t)}</Text><FavoriteStar state={state} kind={kind} id={t.id} /></View>)}
     </>}
   </View>;
 }

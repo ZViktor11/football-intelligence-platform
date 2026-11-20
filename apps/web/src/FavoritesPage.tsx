@@ -63,7 +63,7 @@ export default function FavoritesPage() {
         const type = kinds.find(k => f[k] !== null)
         const target = type && f[type]
         if (!type || !target) return null
-        const path = type === 'competition' ? '/competitions' : '/' + (type === 'match' ? 'matches' : type + 's') + '/' + target.id
+        const path = '/' + (type === 'match' ? 'matches' : type + 's') + '/' + target.id
         return <li key={f.id}><Link to={path}>{title(target)}</Link> ({type}) <button disabled={updating || !ready} onClick={() => void change(type, target.id, 'DELETE')}>Remove</button></li>
       })}</ul>
       {!ready ? <p>Loading favorites...</p> : !favorites.length && <p>No favorites yet.</p>}

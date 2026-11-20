@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 import { API_URL } from './src/config';
 import { authenticatedFetch, SessionExpiredError } from './src/apiClient';
 import { deleteMatchEvent } from './src/matchEvents';
@@ -18,9 +19,8 @@ import { RecordGoal } from './src/RecordGoal';
 import { RecordCard } from './src/RecordCard';
 import { RecordSubstitution } from './src/RecordSubstitution';
 import MatchSquadEditor from './src/MatchSquadEditor';
-import { LoginScreen } from './src/LoginScreen';
-import type { LoginResponse } from './src/auth';
-import { FavoriteStar, FavoritesPanel, useFavorites, type FavoritesState } from './src/FavoritesPanel';
+import { FavoriteStar, FavoritesPanel, type FavoritesState, type Kind } from './src/FavoritesPanel';
+import { useSession } from './src/sessionContext';
 import { MatchStatistics, type Statistics } from './src/MatchStatistics';
 
 type MatchStatus =
@@ -44,6 +44,7 @@ type MatchEvent = {
   teamId: number | null;
   player: Player | null;
   playerId: number | null;
+  assistPlayerId?: number | null;
   playerOutId: number | null;
   playerInId: number | null;
   isOwnGoal: boolean;
@@ -53,6 +54,7 @@ type SquadEntry = {
   playerId: number;
   teamId: number;
   role: 'STARTER' | 'SUBSTITUTE';
+  player?: Player;
 };
 
 type Match = {
@@ -127,7 +129,7 @@ function MatchCard({ match }: { match: Match }) {
   );
 }
 
-function MatchDetail({
+export function MatchDetail({
   matchId,
   onBack,
   token,
@@ -233,16 +235,8 @@ function MatchDetail({
   }, [loadMatch]);
 
   const loadSquad = useCallback(async () => {
-    if (!token) {
-      setSquad([]);
-      return;
-    }
-
     try {
-      const response = await authenticatedFetch(
-        `${API_URL}/match-squads/match/${matchId}`,
-        token,
-      );
+      const response = await fetch(`${API_URL}/match-squads/match/${matchId}`);
 
       if (!response.ok) {
         throw new Error(`Squad API returned HTTP ${response.status}`);
@@ -261,10 +255,12 @@ function MatchDetail({
         err instanceof Error ? err.message : 'Could not load match squad',
       );
     }
-  }, [matchId, token, onSessionExpired]);
+  }, [matchId, onSessionExpired]);
 
   useEffect(() => {
     void loadSquad();
+    const interval = setInterval(() => void loadSquad(), 15000);
+    return () => clearInterval(interval);
   }, [loadSquad, match?.status]);
 
   useEffect(() => {
@@ -375,6 +371,12 @@ function MatchDetail({
     }
   }
 
+  function playerLink(id: number | null | undefined, fallback = 'Unknown player') {
+    const player = players.find(p => p.id === id);
+    const name = player ? `${player.firstName} ${player.lastName}` : fallback;
+    return id != null ? <Text accessibilityRole="link" style={styles.detailLink} onPress={() => openDetail('player', id)}>{name}</Text> : <Text>{name}</Text>;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
@@ -423,7 +425,7 @@ function MatchDetail({
                     homeTeamId={match.homeTeam.id}
                     awayTeamId={match.awayTeam.id}
                     token={token}
-                    onChanged={loadMatch}
+                    onChanged={async () => { await loadMatch(); await loadSquad(); }}
                     onSessionExpired={onSessionExpired}
                   />
                 )}
@@ -466,14 +468,14 @@ function MatchDetail({
               {match && (
                 <View style={styles.card}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={[styles.competition, { flex: 1 }]}>
+                    <Text style={[styles.competition, { flex: 1 }, match.season?.competition && styles.detailLink]} accessibilityRole={match.season?.competition ? 'link' : undefined} onPress={match.season?.competition ? () => openDetail('competition', match.season!.competition!.id) : undefined}>
                       {match.season?.competition?.name ?? 'Football'}
                     </Text>
                     {favorites && match.season?.competition && <FavoriteStar state={favorites} kind="competition" id={match.season.competition.id} />}
                   </View>
                   {[match.homeTeam, match.awayTeam].map(team => (
                     <View key={team.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.detailTeams, { flex: 1 }]}>{team.name}</Text>
+                      <Text style={[styles.detailTeams, styles.detailLink, { flex: 1 }]} accessibilityRole="link" onPress={() => openDetail('team', team.id)}>{team.name}</Text>
                       {favorites && <FavoriteStar state={favorites} kind="team" id={team.id} />}
                     </View>
                   ))}
@@ -487,6 +489,26 @@ function MatchDetail({
               )}
 
               {match && <MatchStatistics match={match} token={token} onChanged={loadMatch} onSessionExpired={onSessionExpired} />}
+              {match && <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Lineups</Text>
+                {squad.length === 0 && <Text style={styles.helper}>No lineup available.</Text>}
+                {[match.homeTeam, match.awayTeam].map(team => (
+                  <View key={team.id}>
+                    <Text style={[styles.teamName, styles.detailLink]} accessibilityRole="link" onPress={() => openDetail('team', team.id)}>{team.name}</Text>
+                    {(['STARTER', 'SUBSTITUTE'] as const).map(role => (
+                      <View key={role}>
+                        <Text style={styles.competition}>{role === 'STARTER' ? 'Starting lineup' : 'Substitutes'}</Text>
+                        {squad.filter(entry => entry.teamId === team.id && entry.role === role).map(entry => (
+                          <View key={entry.playerId} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 36 }}>
+                            <Text style={{ flex: 1, color: '#f8fafc' }}>{playerLink(entry.playerId, entry.player ? `${entry.player.firstName} ${entry.player.lastName}` : `Player ${entry.playerId}`)}</Text>
+                            {favorites && <FavoriteStar state={favorites} kind="player" id={entry.playerId} />}
+                          </View>
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>}
 
               {match &&
                 token &&
@@ -576,7 +598,9 @@ function MatchDetail({
                       ]}
                     />
                     <Text style={styles.eventText}>
-                      {eventLabel(item)}
+                      {item.type === 'SUBSTITUTION' ? <>Substitution · {playerLink(item.playerOutId)} → {playerLink(item.playerInId)}</>
+                        : <>{item.type === 'GOAL' ? (item.isOwnGoal ? 'Own goal' : 'Goal') : item.type === 'RED_CARD' ? 'Red card' : 'Yellow card'} · {playerLink(item.playerId, item.player ? `${item.player.firstName} ${item.player.lastName}` : 'Unknown player')}
+                          {item.assistPlayerId != null && <> · Assist: {playerLink(item.assistPlayerId)}</>}</>}
                     </Text>
                   </View>
                   <Text style={styles.eventTeam}>
@@ -615,16 +639,17 @@ function MatchDetail({
     </SafeAreaView>
   );
 }
+function openDetail(kind: Kind, id: number) {
+  if (kind === 'match') router.push({ pathname: '/matches/[id]', params: { id } });
+  else router.push({ pathname: '/details/[kind]/[id]', params: { kind, id } });
+}
+
 export default function App() {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [session, setSession] = useState<LoginResponse | null>(null);
+  const { session, setSession, favorites } = useSession();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const expireSession = useCallback(() => { setSession(null); setShowLogin(true); }, []);
-  const favorites = useFavorites(session?.accessToken ?? null, expireSession);
 
   const loadMatches = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -664,30 +689,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [loadMatches]);
 
-  if (showLogin) {
-    return (
-      <LoginScreen
-        onLogin={(newSession) => {
-          setSession(newSession);
-          setShowLogin(false);
-        }}
-        onCancel={() => setShowLogin(false)}
-      />
-    );
-  }
-
-  if (selectedMatchId !== null) {
-    return (
-      <MatchDetail
-        matchId={selectedMatchId}
-        token={session?.roles?.length ? session.accessToken : null}
-        favorites={session ? favorites : null}
-        onBack={() => setSelectedMatchId(null)}
-        onSessionExpired={expireSession}
-      />
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
@@ -711,7 +712,7 @@ export default function App() {
           </View>
         ) : (
           <Pressable
-            onPress={() => setShowLogin(true)}
+            onPress={() => router.push('/login')}
             accessibilityRole="button"
             style={styles.accountButton}
           >
@@ -731,7 +732,7 @@ export default function App() {
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Pressable style={{ flex: 1 }} onPress={() => setSelectedMatchId(item.id)}>
+              <Pressable style={{ flex: 1 }} onPress={() => openDetail('match', item.id)}>
                 <MatchCard match={item} />
               </Pressable>
               {session && <FavoriteStar state={favorites} kind="match" id={item.id} />}
@@ -752,7 +753,7 @@ export default function App() {
           }
           ListHeaderComponent={
             <>
-            {session && <FavoritesPanel state={favorites} onMatch={setSelectedMatchId} />}
+            {session && <FavoritesPanel state={favorites} onOpen={openDetail} />}
             {error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -774,6 +775,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  detailLink: { color: '#7dd3fc', textDecorationLine: 'underline' },
   accountRow: {
     gap: 8,
     marginTop: 12,

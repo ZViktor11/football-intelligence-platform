@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Route, Routes, useParams } from 'react-router-dom'
+import { Link, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import AdminLoginPage from './AdminLoginPage'
 import AdminMatchesPage from './AdminMatchesPage'
 import AdminMatchPage from './AdminMatchPage'
@@ -469,6 +469,12 @@ function MatchListPage() {
   )
 }
 
+function BackToMatch() {
+  const [params] = useSearchParams()
+  const from = params.get('fromMatch')
+  return from && /^\d+$/.test(from) ? <Link className="back-link" to={`/matches/${from}`}>Back to match</Link> : null
+}
+
 function MatchDetailPage() {
   const { id } = useParams()
 
@@ -604,16 +610,11 @@ function MatchDetailPage() {
   }
 
   function getEventDescription(event: MatchEvent) {
+    const playerLink = (player: EventPlayer | null) => player
+      ? <Link className="detail-link" to={`/players/${player.id}?fromMatch=${id}`}>{player.firstName} {player.lastName}</Link>
+      : 'Unknown player'
     if (event.type === 'SUBSTITUTION') {
-      const playerOut = event.playerOut
-        ? `${event.playerOut.firstName} ${event.playerOut.lastName}`
-        : 'Unknown player'
-
-      const playerIn = event.playerIn
-        ? `${event.playerIn.firstName} ${event.playerIn.lastName}`
-        : 'Unknown player'
-
-      return `${playerOut} -> ${playerIn}`
+      return <>{playerLink(event.playerOut)} → {playerLink(event.playerIn)}</>
     }
 
     if (event.staffMember) {
@@ -621,14 +622,11 @@ function MatchDetailPage() {
     }
 
     if (event.player) {
-      const playerName =
-        `${event.player.firstName} ${event.player.lastName}`
-
       if (event.type === 'GOAL' && event.assistPlayer) {
-        return `${playerName} - Assist: ${event.assistPlayer.firstName} ${event.assistPlayer.lastName}`
+        return <>{playerLink(event.player)} — Assist: {playerLink(event.assistPlayer)}</>
       }
 
-      return playerName
+      return playerLink(event.player)
     }
 
     return 'No player information'
@@ -691,7 +689,7 @@ function MatchDetailPage() {
           <section className="matches-section match-detail">
             <div className="match-meta">
               <div>
-                <strong>{match.season.competition.name}</strong>
+                <strong><Link className="detail-link" to={`/competitions/${match.season.competition.id}?fromMatch=${id}`}>{match.season.competition.name}</Link></strong>
                 <span>{match.season.name}</span>
               </div>
 
@@ -705,7 +703,7 @@ function MatchDetailPage() {
 
             <div className="match-content">
               <div className="team team-home">
-                <strong>{match.homeTeam.name}</strong>
+                <strong><Link className="detail-link" to={`/teams/${match.homeTeam.id}?fromMatch=${id}`}>{match.homeTeam.name}</Link></strong>
 
                 {match.homeTeam.city && (
                   <span>{match.homeTeam.city}</span>
@@ -732,7 +730,7 @@ function MatchDetailPage() {
               </div>
 
               <div className="team team-away">
-                <strong>{match.awayTeam.name}</strong>
+                <strong><Link className="detail-link" to={`/teams/${match.awayTeam.id}?fromMatch=${id}`}>{match.awayTeam.name}</Link></strong>
 
                 {match.awayTeam.city && (
                   <span>{match.awayTeam.city}</span>
@@ -810,7 +808,7 @@ function MatchDetailPage() {
             ) : (
               <div className="lineups">
                 <div className="lineup-team">
-                  <h3>{match.homeTeam.name}</h3>
+                  <h3><Link className="detail-link" to={`/teams/${match.homeTeam.id}?fromMatch=${id}`}>{match.homeTeam.name}</Link></h3>
 
                   <h4>Starting lineup</h4>
 
@@ -827,8 +825,7 @@ function MatchDetailPage() {
                         key={entry.id}
                       >
                         <strong>
-                          {entry.player.firstName}{' '}
-                          {entry.player.lastName}
+                          <Link className="detail-link" to={`/players/${entry.playerId}?fromMatch=${id}`}>{entry.player.firstName} {entry.player.lastName}</Link>
                         </strong>
 
                         <span>
@@ -854,8 +851,7 @@ function MatchDetailPage() {
                         key={entry.id}
                       >
                         <strong>
-                          {entry.player.firstName}{' '}
-                          {entry.player.lastName}
+                          <Link className="detail-link" to={`/players/${entry.playerId}?fromMatch=${id}`}>{entry.player.firstName} {entry.player.lastName}</Link>
                         </strong>
 
                         <span>
@@ -868,7 +864,7 @@ function MatchDetailPage() {
                 </div>
 
                 <div className="lineup-team">
-                  <h3>{match.awayTeam.name}</h3>
+                  <h3><Link className="detail-link" to={`/teams/${match.awayTeam.id}?fromMatch=${id}`}>{match.awayTeam.name}</Link></h3>
 
                   <h4>Starting lineup</h4>
 
@@ -885,8 +881,7 @@ function MatchDetailPage() {
                         key={entry.id}
                       >
                         <strong>
-                          {entry.player.firstName}{' '}
-                          {entry.player.lastName}
+                          <Link className="detail-link" to={`/players/${entry.playerId}?fromMatch=${id}`}>{entry.player.firstName} {entry.player.lastName}</Link>
                         </strong>
 
                         <span>
@@ -912,8 +907,7 @@ function MatchDetailPage() {
                         key={entry.id}
                       >
                         <strong>
-                          {entry.player.firstName}{' '}
-                          {entry.player.lastName}
+                          <Link className="detail-link" to={`/players/${entry.playerId}?fromMatch=${id}`}>{entry.player.firstName} {entry.player.lastName}</Link>
                         </strong>
 
                         <span>
@@ -1025,6 +1019,7 @@ function CompetitionStandings({ competition }: { competition: CompetitionWithSea
 }
 
 function CompetitionsPage() {
+  const { id } = useParams()
   const [competitions, setCompetitions] = useState<CompetitionWithSeasons[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1033,10 +1028,12 @@ function CompetitionsPage() {
     let cancelled = false
     async function loadCompetitions() {
       try {
-        const response = await fetch('http://localhost:3000/competitions')
+        setLoading(true)
+        setError(null)
+        const response = await fetch('http://localhost:3000/competitions' + (id ? '/' + id : ''))
         if (!response.ok) throw new Error(`API request failed: ${response.status}`)
-        const data: CompetitionWithSeasons[] = await response.json()
-        if (!cancelled) setCompetitions(data)
+        const data: CompetitionWithSeasons | CompetitionWithSeasons[] = await response.json()
+        if (!cancelled) setCompetitions(Array.isArray(data) ? data : [data])
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load competitions')
       } finally {
@@ -1045,13 +1042,14 @@ function CompetitionsPage() {
     }
     void loadCompetitions()
     return () => { cancelled = true }
-  }, [])
+  }, [id])
 
   return (
     <main className="main">
+      <BackToMatch />
       <section className="hero">
         <p className="eyebrow">Competitions</p>
-        <h1>Competitions & standings</h1>
+        <h1>{id && competitions[0] ? competitions[0].name : 'Competitions & standings'}</h1>
         <p className="hero-description">Follow league tables, seasons and competition results.</p>
       </section>
       {loading && <section className="matches-section"><div className="empty-state"><h3>Loading competitions...</h3></div></section>}
@@ -1370,6 +1368,7 @@ function PlayerDetailPage() {
 
   return (
     <main className="main">
+      <BackToMatch />
       <section className="hero">
         <p className="eyebrow">
           {player.position ?? 'Player'}
@@ -1696,6 +1695,7 @@ function TeamDetailPage() {
 
   return (
     <main className="main">
+      <BackToMatch />
       <section className="hero">
         <p className="eyebrow">
           {team.season.competition.name}
@@ -1939,6 +1939,7 @@ function App() {
           path="/competitions"
           element={<CompetitionsPage />}
         />
+        <Route path="/competitions/:id" element={<CompetitionsPage />} />
 
         <Route
           path="/teams"
