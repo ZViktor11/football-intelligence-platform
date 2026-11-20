@@ -12,6 +12,7 @@ import {
 import { API_URL } from './config';
 import { createMatchEvent } from './matchEvents';
 import { SessionExpiredError } from './apiClient';
+import { pitchState } from './pitchState';
 
 type Team = {
   id: number;
@@ -38,6 +39,7 @@ type SubstitutionEvent = {
   teamId?: number | null;
   playerOutId?: number | null;
   playerInId?: number | null;
+  playerId?: number | null;
   minute?: number | null;
 };
 
@@ -135,43 +137,18 @@ export function RecordSubstitution({
       (entry) => entry.teamId === teamId,
     );
 
-    const onPitchIds = new Set(
-      teamSquad
-        .filter((entry) => entry.role === 'STARTER')
-        .map((entry) => entry.playerId),
-    );
-
-    const substitutions = events
-      .filter(
-        (event) =>
-          event.type === 'SUBSTITUTION' &&
-          event.teamId === teamId,
-      )
-      .sort(
-        (a, b) =>
-          (a.minute ?? 0) - (b.minute ?? 0) ||
-          a.id - b.id,
-      );
-
-    for (const event of substitutions) {
-      if (event.playerOutId != null) {
-        onPitchIds.delete(event.playerOutId);
-      }
-
-      if (event.playerInId != null) {
-        onPitchIds.add(event.playerInId);
-      }
-    }
+    const { onPitch: onPitchIds, sentOff } = pitchState(teamSquad,
+      events.filter(event => event.teamId === teamId), Number(minute));
 
     return {
       onPitch: teamSquad.filter((entry) =>
         onPitchIds.has(entry.playerId),
       ),
       available: teamSquad.filter(
-        (entry) => !onPitchIds.has(entry.playerId),
+        (entry) => !onPitchIds.has(entry.playerId) && !sentOff.has(entry.playerId),
       ),
     };
-  }, [squad, events, teamId]);
+  }, [squad, events, teamId, minute]);
 
   function selectTeam(id: number) {
     setTeamId(id);
@@ -191,7 +168,8 @@ export function RecordSubstitution({
   async function handleSave() {
     if (saving) return;
 
-    if (playerOutId === null || playerInId === null) {
+    if (playerOutId === null || playerInId === null ||
+      !onPitch.some(p => p.playerId === playerOutId) || !available.some(p => p.playerId === playerInId)) {
       setError('Select both players.');
       return;
     }

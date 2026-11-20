@@ -11,6 +11,7 @@ import {
 
 import { createMatchEvent } from './matchEvents';
 import { SessionExpiredError } from './apiClient';
+import { pitchState } from './pitchState';
 
 type Player = {
   id: number;
@@ -36,6 +37,7 @@ type MatchEvent = {
   minute: number | null;
   playerOutId: number | null;
   playerInId: number | null;
+  playerId: number | null;
 };
 
 function getOnPitchPlayerIds(
@@ -43,30 +45,7 @@ function getOnPitchPlayerIds(
   events: MatchEvent[],
   minute: number,
 ): Set<number> {
-  const ids = new Set(
-    squad
-      .filter((entry) => entry.role === 'STARTER')
-      .map((entry) => entry.playerId),
-  );
-
-  events
-    .filter(
-      (event) =>
-        event.type === 'SUBSTITUTION' &&
-        event.playerOutId !== null &&
-        event.playerInId !== null &&
-        (event.minute === null || event.minute <= minute),
-    )
-    .sort(
-      (a, b) =>
-        (a.minute ?? 0) - (b.minute ?? 0) || a.id - b.id,
-    )
-    .forEach((event) => {
-      ids.delete(event.playerOutId!);
-      ids.add(event.playerInId!);
-    });
-
-  return ids;
+  return pitchState(squad, events, minute).onPitch;
 }
 
 type RecordGoalProps = {

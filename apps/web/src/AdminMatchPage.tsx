@@ -459,9 +459,8 @@ function AdminMatchPage() {
         .filter(
           (event) =>
             event.id !== excludedEventId &&
-            event.type === 'SUBSTITUTION' &&
-            event.playerOutId !== null &&
-            event.playerInId !== null &&
+            (event.type === 'SUBSTITUTION' || event.type === 'RED_CARD') &&
+            !(excludedEventId !== null && event.minute === minute && event.id > excludedEventId) &&
             (minute === null ||
               event.minute === null ||
               event.minute <= minute),
@@ -478,12 +477,20 @@ function AdminMatchPage() {
           return a.id - b.id
         })
 
+      const sentOff = new Set<number>()
       substitutions.forEach((event) => {
+        if (event.type === 'RED_CARD') {
+          if (event.playerId !== null) {
+            sentOff.add(event.playerId)
+            ids.delete(event.playerId)
+          }
+          return
+        }
         if (event.playerOutId !== null) {
           ids.delete(event.playerOutId)
         }
 
-        if (event.playerInId !== null) {
+        if (event.playerInId !== null && !sentOff.has(event.playerInId)) {
           ids.add(event.playerInId)
         }
       })
@@ -535,9 +542,9 @@ function AdminMatchPage() {
   }
 
   return squad.filter(
-    (entry) => entry.teamId === selectedCardTeamId,
+    (entry) => entry.teamId === selectedCardTeamId && !events.some(event => event.type === 'RED_CARD' && event.playerId === entry.playerId && (event.minute ?? 0) <= (cardMinute === '' ? match?.matchMinute ?? 0 : Number(cardMinute))),
   )
-}, [squad, selectedCardTeamId])
+}, [squad, selectedCardTeamId, events, cardMinute, match?.matchMinute])
 
   const selectedSubstitutionTeamId =
     substitutionTeamId === ''
@@ -572,9 +579,9 @@ function AdminMatchPage() {
 
   const playerInOptions = useMemo(() => {
     return substitutionTeamPlayers.filter(
-      (entry) => !substitutionOnPitchPlayerIds.has(entry.playerId),
+      (entry) => !substitutionOnPitchPlayerIds.has(entry.playerId) && !events.some(event => event.type === 'RED_CARD' && event.playerId === entry.playerId && (substitutionEffectiveMinute === null || (event.minute ?? 0) <= substitutionEffectiveMinute)),
     )
-  }, [substitutionTeamPlayers, substitutionOnPitchPlayerIds])
+  }, [substitutionTeamPlayers, substitutionOnPitchPlayerIds, events, substitutionEffectiveMinute])
 
   const editEffectiveMinute =
     editEventMinute === '' ? null : Number(editEventMinute)
@@ -618,9 +625,9 @@ function AdminMatchPage() {
 
   const editPlayerInOptions = useMemo(() => {
     return editTeamPlayers.filter(
-      (entry) => !editOnPitchPlayerIds.has(entry.playerId),
+      (entry) => !editOnPitchPlayerIds.has(entry.playerId) && !events.some(event => event.type === 'RED_CARD' && event.id !== editingEventId && event.playerId === entry.playerId && (editEffectiveMinute === null || (event.minute ?? 0) < editEffectiveMinute || (event.minute === editEffectiveMinute && event.id < (editingEventId ?? Infinity)))),
     )
-  }, [editTeamPlayers, editOnPitchPlayerIds])
+  }, [editTeamPlayers, editOnPitchPlayerIds, events, editingEventId, editEffectiveMinute])
 
   function getErrorMessage(
 
@@ -3196,7 +3203,7 @@ const awayPlayers = players.filter(
                                   <option value="">
                                     {editEventType === 'GOAL' ? 'No scorer / unknown' : 'Select player'}
                                   </option>
-                                  {editPlayerOptions.map((entry) => (
+                                  {(editEventType === 'GOAL' ? editPlayerOptions : editTeamPlayers.filter(entry => !events.some(event => event.type === 'RED_CARD' && event.id !== editingEventId && event.playerId === entry.playerId && (editEffectiveMinute === null || (event.minute ?? 0) < editEffectiveMinute || (event.minute === editEffectiveMinute && event.id < (editingEventId ?? Infinity)))))).map((entry) => (
                                       <option key={entry.id} value={entry.playerId}>
                                         {entry.player.firstName} {entry.player.lastName} (#{entry.playerId})
                                       </option>

@@ -103,6 +103,42 @@ describe('MatchEventsService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('sent-off players', () => {
+    const red = { id: 10, type: 'RED_CARD', minute: 30, playerId: 1, playerOutId: null, playerInId: null };
+    beforeEach(() => {
+      prismaMock.player.findUnique.mockImplementation(async ({ where }) => ({ id: where.id, teamId: 1 }));
+      prismaMock.matchSquadPlayer.findUnique.mockImplementation(async ({ where }) => ({
+        matchId: 1, teamId: 1, playerId: where.matchId_playerId?.playerId ?? 1, role: 'STARTER',
+      }));
+      prismaMock.matchSquadPlayer.findMany.mockResolvedValue([
+        { playerId: 1, role: 'STARTER' }, { playerId: 2, role: 'STARTER' }, { playerId: 4, role: 'SUBSTITUTE' },
+      ]);
+      prismaMock.matchEvent.findMany.mockImplementation(async ({ where }) =>
+        where.OR || (where.type?.in && (where.minute?.lte ?? 120) >= 30) ? [red] : []);
+      prismaMock.matchEvent.create.mockImplementation(async ({ data }) => ({ id: 11, ...data }));
+    });
+    it.each([
+      { type: 'GOAL' as const, playerId: 1 },
+      { type: 'GOAL' as const, assistPlayerId: 1 },
+      { type: 'YELLOW_CARD' as const, playerId: 1 },
+      { type: 'RED_CARD' as const, playerId: 1 },
+      { type: 'SUBSTITUTION' as const, playerOutId: 1, playerInId: 4 },
+      { type: 'SUBSTITUTION' as const, playerOutId: 2, playerInId: 1 },
+    ])('rejects an event involving the dismissed player: %j', async event => {
+      await expect(service.create({ ...event, matchId: 1, teamId: 1, minute: 31 }, 2)).rejects.toThrow(BadRequestException);
+    });
+    it('allows a goal before the red card', async () => {
+      await expect(service.create({ type: 'GOAL', playerId: 1, matchId: 1, teamId: 1, minute: 29 }, 2)).resolves.toBeDefined();
+    });
+    it('rejects a goal at the same minute after the recorded red card', async () => {
+      await expect(service.create({ type: 'GOAL', playerId: 1, matchId: 1, teamId: 1, minute: 30 }, 2)).rejects.toThrow('Goal scorer is not on the pitch');
+    });
+    it('rejects retroactive dismissal when a later player event exists', async () => {
+      prismaMock.matchEvent.findMany.mockResolvedValue([{ id: 12, type: 'GOAL', playerId: 1, minute: 40 }]);
+      await expect(service.create({ type: 'RED_CARD', playerId: 1, matchId: 1, teamId: 1, minute: 30 }, 2)).rejects.toThrow('Remove or correct later events');
+    });
+  });
+
   describe('event minute', () => {
     it('should use the current match minute when minute is omitted', async () => {
       matchesServiceMock.calculateMatchClock.mockReturnValue({
@@ -954,7 +990,7 @@ describe('MatchEventsService', () => {
             where: expect.objectContaining({
               matchId: 1,
               teamId: 1,
-              type: 'SUBSTITUTION',
+              type: { in: ['SUBSTITUTION', 'RED_CARD'] },
               id: {
                 not: 50,
               },

@@ -133,7 +133,7 @@ export class MatchEventsService {
       where: {
         matchId,
         teamId,
-        type: 'SUBSTITUTION',
+        type: { in: ['SUBSTITUTION', 'RED_CARD'] },
         minute: {
           lte: minute,
         },
@@ -150,17 +150,26 @@ export class MatchEventsService {
           minute: 'asc',
         },
         {
-          createdAt: 'asc',
+          id: 'asc',
         },
       ],
     });
 
+    const sentOff = new Set<number>();
     for (const substitution of substitutions) {
+      if (excludedEventId !== undefined && substitution.minute === minute && substitution.id > excludedEventId) continue;
+      if (substitution.type === 'RED_CARD') {
+        if (substitution.playerId != null) {
+          sentOff.add(substitution.playerId);
+          onPitch.delete(substitution.playerId);
+        }
+        continue;
+      }
       if (substitution.playerOutId !== null) {
         onPitch.delete(substitution.playerOutId);
       }
 
-      if (substitution.playerInId !== null) {
+      if (substitution.playerInId !== null && !sentOff.has(substitution.playerInId)) {
         onPitch.add(substitution.playerInId);
       }
     }
@@ -275,6 +284,8 @@ export class MatchEventsService {
     teamId: number | undefined,
     playerId: number | undefined,
     staffMemberId: number | undefined,
+    type: EventType,
+    excludedEventId?: number,
   ) {
     if (minute === undefined) {
       throw new BadRequestException('A card must have a minute');
@@ -309,6 +320,22 @@ export class MatchEventsService {
       }
 
       await this.ensurePlayerIsSelectedForMatch(matchId, teamId, playerId);
+      const related = await this.prisma.matchEvent.findMany({
+        where: {
+          matchId, teamId,
+          ...(excludedEventId === undefined ? {} : { id: { not: excludedEventId } }),
+          OR: [{ playerId }, { assistPlayerId: playerId }, { playerOutId: playerId }, { playerInId: playerId }],
+        },
+      });
+      const before = (event: { minute: number | null; id: number }) =>
+        (event.minute ?? 0) < minute ||
+        ((event.minute ?? 0) === minute && (excludedEventId === undefined || event.id < excludedEventId));
+      if (related.some(event => event.type === 'RED_CARD' && event.playerId === playerId && before(event))) {
+        throw new BadRequestException('Player has already been sent off');
+      }
+      if (type === 'RED_CARD' && related.some(event => !before(event))) {
+        throw new BadRequestException('Remove or correct later events involving this player before recording a red card');
+      }
     }
 
     if (staffMemberId !== undefined) {
@@ -351,7 +378,7 @@ export class MatchEventsService {
       where: {
         matchId,
         teamId,
-        type: 'SUBSTITUTION',
+        type: { in: ['SUBSTITUTION', 'RED_CARD'] },
         ...(excludedEventId !== undefined
           ? {
               id: {
@@ -365,7 +392,7 @@ export class MatchEventsService {
           minute: 'asc',
         },
         {
-          createdAt: 'asc',
+          id: 'asc',
         },
       ],
     });
@@ -376,26 +403,36 @@ export class MatchEventsService {
         playerOutId: substitution.playerOutId,
         playerInId: substitution.playerInId,
         isCandidate: false,
+        id: substitution.id,
+        type: substitution.type,
+        playerId: substitution.playerId,
       })),
       {
         minute: candidate.minute,
         playerOutId: candidate.playerOutId,
         playerInId: candidate.playerInId,
         isCandidate: true,
+        id: excludedEventId ?? Number.MAX_SAFE_INTEGER,
+        type: 'SUBSTITUTION',
+        playerId: null,
       },
     ].sort((a, b) => {
       if (a.minute !== b.minute) {
         return a.minute - b.minute;
       }
 
-      if (a.isCandidate === b.isCandidate) {
-        return 0;
-      }
-
-      return a.isCandidate ? 1 : -1;
+      return a.id - b.id;
     });
 
+    const sentOff = new Set<number>();
     for (const substitution of substitutions) {
+      if (substitution.type === 'RED_CARD') {
+        if (substitution.playerId != null) {
+          sentOff.add(substitution.playerId);
+          onPitch.delete(substitution.playerId);
+        }
+        continue;
+      }
       if (
         substitution.playerOutId === null ||
         substitution.playerOutId === undefined ||
@@ -411,6 +448,9 @@ export class MatchEventsService {
         );
       }
 
+      if (sentOff.has(substitution.playerInId)) {
+        throw new BadRequestException('A sent-off player cannot enter the pitch');
+      }
       if (onPitch.has(substitution.playerInId)) {
         throw new BadRequestException(
           'Invalid substitution chronology: player entering the field is already on the pitch',
@@ -598,7 +638,7 @@ export class MatchEventsService {
         );
       }
 
-      await this.validateCard(matchId, minute, teamId, playerId, staffMemberId);
+      await this.validateCard(matchId, minute, teamId, playerId, staffMemberId, type, excludedEventId);
 
       return;
     }

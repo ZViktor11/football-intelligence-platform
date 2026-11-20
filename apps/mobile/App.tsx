@@ -20,7 +20,7 @@ import { RecordSubstitution } from './src/RecordSubstitution';
 import MatchSquadEditor from './src/MatchSquadEditor';
 import { LoginScreen } from './src/LoginScreen';
 import type { LoginResponse } from './src/auth';
-import { FavoritesPanel } from './src/FavoritesPanel';
+import { FavoriteStar, FavoritesPanel, useFavorites, type FavoritesState } from './src/FavoritesPanel';
 import { MatchStatistics, type Statistics } from './src/MatchStatistics';
 
 type MatchStatus =
@@ -43,6 +43,7 @@ type MatchEvent = {
   minute: number | null;
   teamId: number | null;
   player: Player | null;
+  playerId: number | null;
   playerOutId: number | null;
   playerInId: number | null;
   isOwnGoal: boolean;
@@ -68,7 +69,7 @@ type Match = {
   awayTeam: { id: number; name: string };
   season?: {
     name: string;
-    competition?: { name: string };
+    competition?: { id: number; name: string };
   };
 };
 
@@ -130,11 +131,13 @@ function MatchDetail({
   matchId,
   onBack,
   token,
+  favorites,
   onSessionExpired,
 }: {
   matchId: number;
   onBack: () => void;
   token: string | null;
+  favorites: FavoritesState | null;
   onSessionExpired: () => void;
 }) {
   const [match, setMatch] = useState<Match | null>(null);
@@ -381,6 +384,7 @@ function MatchDetail({
           <Text style={styles.backButton}>← Back to matches</Text>
         </Pressable>
         <Text style={styles.title}>Match details</Text>
+        {favorites && <FavoriteStar state={favorites} kind="match" id={matchId} />}
       </View>
 
       {loading && !match ? (
@@ -461,12 +465,18 @@ function MatchDetail({
 
               {match && (
                 <View style={styles.card}>
-                  <Text style={styles.competition}>
-                    {match.season?.competition?.name ?? 'Football'}
-                  </Text>
-                  <Text style={styles.detailTeams}>
-                    {match.homeTeam.name} vs {match.awayTeam.name}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.competition, { flex: 1 }]}>
+                      {match.season?.competition?.name ?? 'Football'}
+                    </Text>
+                    {favorites && match.season?.competition && <FavoriteStar state={favorites} kind="competition" id={match.season.competition.id} />}
+                  </View>
+                  {[match.homeTeam, match.awayTeam].map(team => (
+                    <View key={team.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.detailTeams, { flex: 1 }]}>{team.name}</Text>
+                      {favorites && <FavoriteStar state={favorites} kind="team" id={team.id} />}
+                    </View>
+                  ))}
                   <Text style={styles.detailScore}>
                     {match.homeScore} – {match.awayScore}
                   </Text>
@@ -509,6 +519,8 @@ function MatchDetail({
   homeTeam={match.homeTeam}
   awayTeam={match.awayTeam}
   players={players}
+  squad={squad}
+  events={match.events ?? []}
   token={token}
   onSaved={loadMatch}
     onSessionExpired={onSessionExpired}
@@ -571,6 +583,7 @@ function MatchDetail({
                     {teamLabel}
                   </Text>
                 </View>
+                {favorites && item.playerId != null && <FavoriteStar state={favorites} kind="player" id={item.playerId} />}
                 {token && (
                   <Pressable
                     disabled={deletingEventId !== null}
@@ -611,6 +624,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const expireSession = useCallback(() => { setSession(null); setShowLogin(true); }, []);
+  const favorites = useFavorites(session?.accessToken ?? null, expireSession);
 
   const loadMatches = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -667,6 +681,7 @@ export default function App() {
       <MatchDetail
         matchId={selectedMatchId}
         token={session?.roles?.length ? session.accessToken : null}
+        favorites={session ? favorites : null}
         onBack={() => setSelectedMatchId(null)}
         onSessionExpired={expireSession}
       />
@@ -715,9 +730,12 @@ export default function App() {
           data={matches}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
-            <Pressable onPress={() => setSelectedMatchId(item.id)}>
-              <MatchCard match={item} />
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Pressable style={{ flex: 1 }} onPress={() => setSelectedMatchId(item.id)}>
+                <MatchCard match={item} />
+              </Pressable>
+              {session && <FavoriteStar state={favorites} kind="match" id={item.id} />}
+            </View>
           )}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -734,7 +752,7 @@ export default function App() {
           }
           ListHeaderComponent={
             <>
-            {session && <FavoritesPanel token={session.accessToken} onSessionExpired={expireSession} onMatch={setSelectedMatchId} />}
+            {session && <FavoritesPanel state={favorites} onMatch={setSelectedMatchId} />}
             {error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>

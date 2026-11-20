@@ -11,6 +11,7 @@ import {
 
 import { createMatchEvent } from './matchEvents';
 import { SessionExpiredError } from './apiClient';
+import { pitchState, type PitchEvent } from './pitchState';
 
 type Player = {
   id: number;
@@ -32,6 +33,8 @@ type RecordCardProps = {
   homeTeam: Team;
   awayTeam: Team;
   players: Player[];
+  squad: { playerId: number; role: string }[];
+  events: PitchEvent[];
   token: string;
   onSaved: () => Promise<void>;
   onSessionExpired: () => void;
@@ -43,6 +46,8 @@ export function RecordCard({
   homeTeam,
   awayTeam,
   players,
+  squad,
+  events,
   token,
   onSaved,
   onSessionExpired,
@@ -70,8 +75,9 @@ export function RecordCard({
     }
   }, [currentMinute]);
 
+  const { sentOff } = pitchState(squad, events, Number(minute));
   const teamPlayers = players.filter(
-    (player) => player.teamId === teamId,
+    (player) => player.teamId === teamId && squad.some(p => p.playerId === player.id) && !sentOff.has(player.id),
   );
 
   function selectTeam(id: number) {
@@ -91,7 +97,7 @@ export function RecordCard({
   async function handleSave() {
     if (saving) return;
 
-    if (playerId === null) {
+    if (playerId === null || !teamPlayers.some(p => p.id === playerId)) {
       setError('Please select a player.');
       return;
     }
