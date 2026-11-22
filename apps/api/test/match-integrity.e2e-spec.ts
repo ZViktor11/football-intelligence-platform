@@ -19,6 +19,9 @@ suite('Match integrity (real database + HTTP)', () => {
   let starter: number;
   let substitute1: number;
   let substitute2: number;
+  let seasonId: number;
+  let awayId: number;
+  let squadMatchId: number;
   const unique = Date.now() + '-' + Math.random().toString(36).slice(2);
   const password = 'IntegrationTest123!';
 
@@ -39,9 +42,11 @@ suite('Match integrity (real database + HTTP)', () => {
     const competition = await db.competition.create({ data: { name: 'Integration ' + unique } });
     competitionId = competition.id;
     const season = await db.season.create({ data: { name: 'Test', competitionId } });
+    seasonId = season.id;
     const home = await db.team.create({ data: { name: 'Home', seasonId: season.id } });
     homeId = home.id;
     const away = await db.team.create({ data: { name: 'Away', seasonId: season.id } });
+    awayId = away.id;
     const match = await db.match.create({ data: { date: new Date(), homeTeamId: homeId, awayTeamId: away.id, seasonId: season.id, status: 'LIVE', actualStartedAt: new Date() } });
     matchId = match.id;
     const player = async (name: string, role: 'STARTER' | 'SUBSTITUTE') => {
@@ -58,6 +63,7 @@ suite('Match integrity (real database + HTTP)', () => {
     if (!db) return;
     try {
       if (matchId) await db.match.delete({ where: { id: matchId } });
+      if (squadMatchId) await db.match.delete({ where: { id: squadMatchId } });
       if (homeId) await db.player.deleteMany({ where: { teamId: homeId } });
       if (competitionId) await db.competition.delete({ where: { id: competitionId } });
       await db.user.deleteMany({ where: { id: { in: [adminId, viewerId].filter(Boolean) } } });
@@ -97,5 +103,56 @@ suite('Match integrity (real database + HTTP)', () => {
     await http.delete('/match-events/' + second.body.id).set('Authorization', auth).expect(200);
     await create({ type: 'GOAL', minute: 31, playerId: scorer }).expect(201);
     expect((await db.match.findUniqueOrThrow({ where: { id: matchId } })).homeScore).toBe(2);
+  }, 30_000);
+
+  it('allows only one concurrent addition to a ten-player starting lineup', async () => {
+    const match = await db.match.create({ data: {
+      date: new Date(), homeTeamId: homeId, awayTeamId: awayId, seasonId, status: 'PRE_MATCH',
+    } });
+    squadMatchId = match.id;
+    const players = await Promise.all(Array.from({ length: 12 }, (_, i) =>
+      db.player.create({ data: { firstName: 'Squad' + i, lastName: 'Test', teamId: homeId } })));
+    await db.matchSquadPlayer.createMany({ data: players.slice(0, 10).map(p => ({
+      matchId: squadMatchId, teamId: homeId, playerId: p.id, role: 'STARTER',
+    })) });
+    const http = request(app.getHttpServer());
+    const auth = 'Bearer ' + adminToken;
+    const results = await Promise.all(players.slice(10).map(p =>
+      http.post('/match-squads').set('Authorization', auth).send({
+        matchId: squadMatchId, teamId: homeId, playerId: p.id, role: 'STARTER',
+      })));
+    expect(results.map(r => r.status).sort()).toEqual([201, 400]);
+    expect(await db.matchSquadPlayer.count({ where: { matchId: squadMatchId, teamId: homeId, role: 'STARTER' } })).toBe(11);
+    const remaining = players.slice(10).find(p => p.id !== results.find(r => r.status === 201)!.body.playerId)!;
+    const substitute = await http.post('/match-squads').set('Authorization', auth).send({
+      matchId: squadMatchId, teamId: homeId, playerId: remaining.id, role: 'SUBSTITUTE',
+    }).expect(201);
+    await http.patch('/match-squads/' + substitute.body.id).set('Authorization', auth).send({ role: 'STARTER' }).expect(400);
+  }, 30_000);
+
+  it('stores a randomly generated season draw seed and returns stable standings', async () => {
+    const season = await db.season.findUniqueOrThrow({ where: { id: seasonId } });
+    expect(season.standingsDrawSeed).toMatch(/^[0-9a-f-]{36}$/i);
+    const http = request(app.getHttpServer());
+    const auth = 'Bearer ' + adminToken;
+    const status = (value: string) => http.patch('/matches/' + squadMatchId + '/status')
+      .set('Authorization', auth).send({ status: value });
+    await status('LIVE').expect(200);
+    const selected = await db.matchSquadPlayer.findFirstOrThrow({ where: {
+      matchId: squadMatchId, teamId: homeId, role: 'STARTER',
+    } });
+    const card = await http.post('/match-events').set('Authorization', auth).send({
+      matchId: squadMatchId, teamId: homeId, playerId: selected.playerId, type: 'YELLOW_CARD', minute: 10,
+    }).expect(201);
+    await status('HALF_TIME').expect(200);
+    await status('LIVE').expect(200);
+    await status('HALF_TIME').expect(400);
+    await status('FINISHED').expect(200);
+    const fairPlay = await http.get('/seasons/' + seasonId + '/standings').expect(200);
+    expect(fairPlay.body.map(t => t.teamId)).toEqual([awayId, homeId]);
+    await http.delete('/match-events/' + card.body.id).set('Authorization', auth).expect(200);
+    const first = await http.get('/seasons/' + seasonId + '/standings').expect(200);
+    const second = await http.get('/seasons/' + seasonId + '/standings').expect(200);
+    expect(second.body).toEqual(first.body);
   }, 30_000);
 });

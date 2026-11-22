@@ -257,6 +257,14 @@ export class MatchesService {
 
     if (
       match.status === MatchStatus.LIVE &&
+      status === MatchStatus.HALF_TIME &&
+      (match.firstHalfEndedAt !== null || match.secondHalfStartedAt !== null)
+    ) {
+      throw new BadRequestException('Half-time has already been completed');
+    }
+
+    if (
+      match.status === MatchStatus.LIVE &&
       status === MatchStatus.FINISHED &&
       match.secondHalfStartedAt === null
     ) {

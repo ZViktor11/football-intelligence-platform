@@ -6,12 +6,33 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
 import { CreateMatchSquadPlayerDto } from './dto/create-match-squad-player.dto';
 import { UpdateMatchSquadPlayerDto } from './dto/update-match-squad-player.dto';
 
 @Injectable()
 export class MatchSquadsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async atomic<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.prisma.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError)) throw error;
+        if (error.code === 'P2002') throw new ConflictException('Player is already selected for this match');
+        if (error.code !== 'P2034') throw error;
+        if (attempt >= 2) throw new ConflictException('Concurrent squad update; please reload and retry');
+      }
+    }
+  }
+
+  private async ensureStarterCapacity(tx: Prisma.TransactionClient, matchId: number, teamId: number) {
+    const count = await tx.matchSquadPlayer.count({ where: { matchId, teamId, role: 'STARTER' } });
+    if (count >= 11) throw new BadRequestException('A team can have at most 11 starting players');
+  }
 
   private ensureSquadIsEditable(status: string) {
     const editableStatuses = ['SCHEDULED', 'PRE_MATCH'];
@@ -24,9 +45,13 @@ export class MatchSquadsService {
   }
 
   async create(createMatchSquadPlayerDto: CreateMatchSquadPlayerDto) {
+    return this.atomic(tx => this.createAtomic(tx, createMatchSquadPlayerDto));
+  }
+
+  private async createAtomic(tx: Prisma.TransactionClient, createMatchSquadPlayerDto: CreateMatchSquadPlayerDto) {
     const { matchId, teamId, playerId, role } = createMatchSquadPlayerDto;
 
-    const match = await this.prisma.match.findUnique({
+    const match = await tx.match.findUnique({
       where: {
         id: matchId,
       },
@@ -45,7 +70,7 @@ export class MatchSquadsService {
       throw new BadRequestException('Team does not belong to this match');
     }
 
-    const player = await this.prisma.player.findUnique({
+    const player = await tx.player.findUnique({
       where: {
         id: playerId,
       },
@@ -61,7 +86,7 @@ export class MatchSquadsService {
       );
     }
 
-    const existingEntry = await this.prisma.matchSquadPlayer.findUnique({
+    const existingEntry = await tx.matchSquadPlayer.findUnique({
       where: {
         matchId_playerId: {
           matchId,
@@ -74,7 +99,9 @@ export class MatchSquadsService {
       throw new ConflictException('Player is already selected for this match');
     }
 
-    return this.prisma.matchSquadPlayer.create({
+    if (role === 'STARTER') await this.ensureStarterCapacity(tx, matchId, teamId);
+
+    return tx.matchSquadPlayer.create({
       data: {
         matchId,
         teamId,
@@ -125,7 +152,11 @@ export class MatchSquadsService {
     id: number,
     updateMatchSquadPlayerDto: UpdateMatchSquadPlayerDto,
   ) {
-    const squadEntry = await this.prisma.matchSquadPlayer.findUnique({
+    return this.atomic(tx => this.updateAtomic(tx, id, updateMatchSquadPlayerDto));
+  }
+
+  private async updateAtomic(tx: Prisma.TransactionClient, id: number, updateMatchSquadPlayerDto: UpdateMatchSquadPlayerDto) {
+    const squadEntry = await tx.matchSquadPlayer.findUnique({
       where: {
         id,
       },
@@ -140,12 +171,16 @@ export class MatchSquadsService {
 
     this.ensureSquadIsEditable(squadEntry.match.status);
 
-    return this.prisma.matchSquadPlayer.update({
+    if (updateMatchSquadPlayerDto.role === 'STARTER' && squadEntry.role !== 'STARTER') {
+      await this.ensureStarterCapacity(tx, squadEntry.matchId, squadEntry.teamId);
+    }
+
+    return tx.matchSquadPlayer.update({
       where: {
         id,
       },
       data: {
-        role: updateMatchSquadPlayerDto.role,
+        role: updateMatchSquadPlayerDto.role ?? undefined,
       },
       include: {
         team: true,
@@ -155,7 +190,11 @@ export class MatchSquadsService {
   }
 
   async remove(id: number) {
-    const squadEntry = await this.prisma.matchSquadPlayer.findUnique({
+    return this.atomic(tx => this.removeAtomic(tx, id));
+  }
+
+  private async removeAtomic(tx: Prisma.TransactionClient, id: number) {
+    const squadEntry = await tx.matchSquadPlayer.findUnique({
       where: {
         id,
       },
@@ -170,7 +209,7 @@ export class MatchSquadsService {
 
     this.ensureSquadIsEditable(squadEntry.match.status);
 
-    return this.prisma.matchSquadPlayer.delete({
+    return tx.matchSquadPlayer.delete({
       where: {
         id,
       },

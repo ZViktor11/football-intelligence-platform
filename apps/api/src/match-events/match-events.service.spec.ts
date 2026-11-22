@@ -382,7 +382,7 @@ describe('MatchEventsService', () => {
         }),
       );
 
-      expect(authServiceMock.getUserRoles).toHaveBeenCalledWith(1);
+      expect(authServiceMock.getUserRoles).toHaveBeenCalledWith(1, prismaMock);
 
       expect(prismaMock.matchEvent.create).toHaveBeenCalled();
     });

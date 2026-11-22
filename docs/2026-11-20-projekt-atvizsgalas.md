@@ -98,3 +98,20 @@ A `e234cb5` verzióra épülő fejlesztések lezárják a korábbi P1 alkalmazá
 Helyi ellenőrzés: 219/219 unit és mockolt HTTP-teszt (26 tesztcsomag), valamint 3/3 adatbázisos HTTP-teszt (2 tesztcsomag) PostgreSQL-kompatibilis PGlite adatbázison, valós Prisma és NestJS használatával. A teszt igazolja a két párhuzamos csere közül az egyik elutasítását, a hibás eseménytörlés visszagörgetését, a második sárgás kiállítást és kedvencek elkülönítését. A demószkript kétszeri futtatása azonos mérkőzésazonosítókat adott. A backend build, web build és lint, mobil TypeScript, lint, Expo-kompatibilitás és Android export sikeres. Az új mobil lint függőségekkel a teljes és production audit változatlanul 6 bejegyzést mutat. A natív PostgreSQL 16 CI futása az első push után ellenőrizhető; fizikai telefonos regresszió továbbra is szükséges.
 
 Nyitott üzemeltetési feladatok: a fennmaradt Expo SDK- és fejlesztői függőségi auditbejegyzések kezelése kompatibilis verziókkal, a GitHub Actions tényleges futásának ellenőrzése, éles környezetben erős adatbázis-hitelesítés, HTTPS és több API-példány esetén megosztott rate limit. Ez a változtatás nem állítja, hogy teljes körű biztonsági audit vagy éles telepítés történt.
+
+## 2026. november 22. – záró stabilizálás
+
+Kiinduló verzió: `874cc9d`. A fejlesztő a saját gépén sikeres funkcionális tesztelést és zöld GitHub Actions futást jelentett. A végső áttekintés négy fennmaradó hibájának javítása:
+
+- A produkciós indítóparancs a tényleges buildkimenetre (`dist/src/main.js`) mutat.
+- A második félidőből nem lehet ismét félidőre váltani; a hibás állapotátmenet 400-as választ ad.
+- A kezdőcsapat létszáma csapatonként legfeljebb 11; a cserék száma ettől független. A szerver új kezdő kiválasztásakor és egy cserejátékos kezdővé módosításakor is ellenőrzi a korlátot. A párhuzamos keretmódosításokat szerializálható tranzakció védi. A rendszer a 11-nél kisebb kereteket továbbra is engedi.
+- A fair play rangsorolás a lezárt mérkőzések lapjaiból számol, játékosonként és stábtagonként: egy sárga 1, második sárgás kiállítás összesen 3, közvetlen piros 4, sárga és közvetlen piros együtt 5 büntetőpont. Ez a platform választott szabálya, nem minden bajnokságra érvényes hivatalos előírás. A kevesebb pont előnyt jelent.
+- Teljes egyezés esetén a sorsolási szabály szezononként egyszer véletlenszerűen generált, adatbázisban tárolt UUID és a csapatazonosító SHA-256 hash-e alapján ad stabil sorrendet. A csapatnév vagy a lekérdezések sorrendje nem befolyásolja az eredményt. Ez automatikus digitális sorsolásmodell, nem hivatalos szövetségi sorsolás. A még mérkőzés nélküli csapatok megjelenítése változatlanul névsorrendben történik.
+- Lezárt mérkőzés eseményjavításakor a szerepkör-lekérdezés is az esemény tranzakciójában történik, külön adatbázis-kapcsolat igénybevétele nélkül.
+
+Adatbázis: `20261122160000_add_standings_draw_seed` migráció; a meglévő szezonok automatikusan megkapják a véletlen magot, a korábbi sportadatok nem törlődnek. Telepítés: `npx prisma migrate deploy`, `npx prisma generate`.
+
+Ellenőrzés: 231/231 unit és mockolt HTTP-teszt (28 tesztcsomag), 5/5 adatbázisos HTTP-teszt (2 tesztcsomag) PostgreSQL-kompatibilis PGlite adatbázison, sikeres backend build és produkciós indítás (HTTP 200). A tesztekben a 12. kezdő elutasítása, a párhuzamos kezdőválasztás, az ismételt félidő elutasítása, a fair play sorrend és a stabil sorsolás is szerepel. A natív PostgreSQL 16 ellenőrzést a CI végzi az új commit feltöltése után. A webes és mobilos forráskód, valamint a függőségek ebben a javításban változatlanok.
+
+Továbbfejlesztési lehetőség: automatikus tokenfrissítés, mérkőzésjelentések külön felülete, bajnokságonként konfigurálható fair play szabály, külső hivatalos sorsolási eredmény rögzítése és Expo főverziófrissítés.

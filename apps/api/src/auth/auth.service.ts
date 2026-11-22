@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -89,8 +90,8 @@ export class AuthService {
     };
   }
 
-  async getUserRoles(userId: number) {
-    return this.prisma.roleAssignment.findMany({
+  async getUserRoles(userId: number, client: Prisma.TransactionClient = this.prisma) {
+    return client.roleAssignment.findMany({
       where: {
         userId,
       },

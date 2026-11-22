@@ -74,6 +74,7 @@ model Competition {
 model Season {
   id   Int    @id @default(autoincrement())
   name String
+  standingsDrawSeed String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
   competitionId Int
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)

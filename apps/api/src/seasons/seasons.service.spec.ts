@@ -36,6 +36,34 @@ describe('SeasonsService', () => {
   });
 
   describe('standings', () => {
+    it('ranks the team with fewer fair-play penalties ahead of the alphabetic favorite', async () => {
+      prismaMock.season.findUnique.mockResolvedValue({
+        id: 1, standingsDrawSeed: '01234567-89ab-cdef-0123-456789abcdef',
+        competition: { standingsTieBreakers: ['POINTS', 'FAIR_PLAY', 'DRAWING_OF_LOTS'] },
+        teams: [{ id: 1, name: 'Alpha' }, { id: 2, name: 'Zeta' }],
+        matches: [{
+          homeTeamId: 1, awayTeamId: 2, homeScore: 0, awayScore: 0,
+          events: [{ id: 1, type: 'YELLOW_CARD', teamId: 1, playerId: 1, staffMemberId: null }],
+        }],
+      });
+      expect((await service.getStandings(1)).map(t => t.teamId)).toEqual([2, 1]);
+    });
+
+    it('uses a stable draw independent of names and input order', async () => {
+      const fixture = {
+        id: 1, standingsDrawSeed: '01234567-89ab-cdef-0123-456789abcdef',
+        competition: { standingsTieBreakers: ['POINTS', 'FAIR_PLAY', 'DRAWING_OF_LOTS'] },
+        teams: [{ id: 1, name: 'Alpha' }, { id: 2, name: 'Zeta' }],
+        matches: [{ homeTeamId: 1, awayTeamId: 2, homeScore: 0, awayScore: 0, events: [] }],
+      };
+      prismaMock.season.findUnique.mockResolvedValue(fixture);
+      const first = (await service.getStandings(1)).map(t => t.teamId);
+      prismaMock.season.findUnique.mockResolvedValue({
+        ...fixture, teams: [{ id: 2, name: 'AAA' }, { id: 1, name: 'ZZZ' }],
+      });
+      expect((await service.getStandings(1)).map(t => t.teamId)).toEqual(first);
+    });
+
     it('should calculate standings from finished matches', async () => {
       prismaMock.season.findUnique.mockResolvedValue({
         id: 1,

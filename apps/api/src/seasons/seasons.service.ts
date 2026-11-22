@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { createHash } from 'node:crypto';
+import { fairPlayPenalties } from './fair-play';
 import { CreateSeasonDto } from './dto/create-season.dto';
 import {
   DEFAULT_STANDINGS_TIEBREAKERS,
@@ -46,7 +48,8 @@ type SupportedRule =
   | StandingsTieBreaker.GOALS_FOR
   | StandingsTieBreaker.HEAD_TO_HEAD_POINTS
   | StandingsTieBreaker.HEAD_TO_HEAD_GOAL_DIFFERENCE
-  | StandingsTieBreaker.HEAD_TO_HEAD_GOALS_FOR;
+  | StandingsTieBreaker.HEAD_TO_HEAD_GOALS_FOR
+  | StandingsTieBreaker.FAIR_PLAY;
 
 @Injectable()
 export class SeasonsService {
@@ -171,6 +174,7 @@ export class SeasonsService {
     team: StandingEntry,
     rule: SupportedRule,
     headToHead: Map<number, HeadToHeadEntry> | null,
+    penalties: Map<number, number>,
   ): number {
     switch (rule) {
       case StandingsTieBreaker.POINTS:
@@ -190,6 +194,8 @@ export class SeasonsService {
 
       case StandingsTieBreaker.HEAD_TO_HEAD_GOALS_FOR:
         return headToHead!.get(team.teamId)!.goalsFor;
+      case StandingsTieBreaker.FAIR_PLAY:
+        return -(penalties.get(team.teamId) ?? 0);
     }
   }
 
@@ -197,6 +203,8 @@ export class SeasonsService {
   teams: StandingEntry[],
   matches: FinishedMatch[],
   rules: StandingsTieBreaker[],
+  penalties: Map<number, number>,
+  drawSeed: string,
   ruleIndex = 0,
 ): StandingEntry[] {
   if (teams.length <= 1) {
@@ -224,15 +232,10 @@ export class SeasonsService {
 
 
 
-    if (
-      rule === StandingsTieBreaker.FAIR_PLAY ||
-      rule === StandingsTieBreaker.DRAWING_OF_LOTS
-    ) {
-      return [...teams].sort(
-        (a, b) =>
-          a.teamName.localeCompare(b.teamName) ||
-          a.teamId - b.teamId,
-      );
+    if (rule === StandingsTieBreaker.DRAWING_OF_LOTS) {
+      const drawKey = (team: StandingEntry) => createHash('sha256')
+        .update(drawSeed + ':' + team.teamId).digest('hex');
+      return [...teams].sort((a, b) => drawKey(a).localeCompare(drawKey(b)) || a.teamId - b.teamId);
     }
 
     const isHeadToHead =
@@ -247,7 +250,7 @@ export class SeasonsService {
 
     const scored = teams.map((team) => ({
       team,
-      value: this.getRuleValue(team, rule, headToHead),
+      value: this.getRuleValue(team, rule, headToHead, penalties),
     }));
 
     scored.sort((a, b) => b.value - a.value);
@@ -273,6 +276,8 @@ export class SeasonsService {
           tiedTeams,
           matches,
           rules,
+          penalties,
+          drawSeed,
           ruleIndex + 1,
         ),
       );
@@ -290,6 +295,9 @@ export class SeasonsService {
         matches: {
           where: {
             status: 'FINISHED',
+          },
+          include: {
+            events: { where: { type: { in: ['YELLOW_CARD', 'RED_CARD'] } } },
           },
         },
       },
@@ -333,6 +341,7 @@ export class SeasonsService {
     const standingsByTeamId = new Map(
       standings.map((entry) => [entry.teamId, entry]),
     );
+    const penalties = new Map<number, number>();
 
     for (const match of season.matches) {
       const home = standingsByTeamId.get(match.homeTeamId);
@@ -340,6 +349,10 @@ export class SeasonsService {
 
       if (!home || !away) {
         continue;
+      }
+
+      for (const [teamId, points] of fairPlayPenalties(match.events ?? [])) {
+        penalties.set(teamId, (penalties.get(teamId) ?? 0) + points);
       }
 
       home.played += 1;
@@ -376,6 +389,8 @@ export class SeasonsService {
       standings,
       season.matches,
       rules,
+      penalties,
+      season.standingsDrawSeed,
     );
 
     return sortedStandings.map((entry, position) => ({

@@ -352,6 +352,18 @@ describe('MatchesService', () => {
       });
     });
 
+    it('rejects returning to half-time after the second half starts', async () => {
+      prismaMock.match.findUnique.mockResolvedValue({
+        ...matchBase,
+        status: MatchStatus.LIVE,
+        actualStartedAt: new Date('2026-10-02T08:00:00Z'),
+        firstHalfEndedAt: new Date('2026-10-02T08:45:00Z'),
+        secondHalfStartedAt: new Date('2026-10-02T09:00:00Z'),
+      });
+      await expect(service.updateStatus(1, MatchStatus.HALF_TIME)).rejects.toThrow('Half-time has already been completed');
+      expect(prismaMock.match.update).not.toHaveBeenCalled();
+    });
+
     it('should reject LIVE -> FINISHED before second half starts', async () => {
       prismaMock.match.findUnique.mockResolvedValue({
         ...matchBase,

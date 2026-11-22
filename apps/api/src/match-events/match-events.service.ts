@@ -55,7 +55,7 @@ export class MatchEventsService {
     }
 
     if (status === 'FINISHED') {
-      const assignments = await this.authService.getUserRoles(userId);
+      const assignments = await this.authService.getUserRoles(userId, this.prisma);
 
       const isSystemAdmin = assignments.some(
         (assignment) => assignment.role === Role.SYSTEM_ADMIN,
