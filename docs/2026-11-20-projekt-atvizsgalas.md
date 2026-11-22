@@ -114,4 +114,8 @@ Adatbázis: `20261122160000_add_standings_draw_seed` migráció; a meglévő sze
 
 Ellenőrzés: 231/231 unit és mockolt HTTP-teszt (28 tesztcsomag), 5/5 adatbázisos HTTP-teszt (2 tesztcsomag) PostgreSQL-kompatibilis PGlite adatbázison, sikeres backend build és produkciós indítás (HTTP 200). A tesztekben a 12. kezdő elutasítása, a párhuzamos kezdőválasztás, az ismételt félidő elutasítása, a fair play sorrend és a stabil sorsolás is szerepel. A natív PostgreSQL 16 ellenőrzést a CI végzi az új commit feltöltése után. A webes és mobilos forráskód, valamint a függőségek ebben a javításban változatlanok.
 
+### Natív PostgreSQL CI regresszió javítása
+
+A `5ad01ea` commit CI-futtatásában a párhuzamos kezdőválasztás egyik kérése 500-as választ kapott: a PostgreSQL helyesen megszakította az ütköző tranzakciót, de a Prisma adapter a COMMIT során közvetlen `DriverAdapterError` hibát adott (`TransactionWriteConflict`, SQLSTATE `40001`) a korábban kezelt `P2034` helyett. A keret- és eseményszerkesztés közös felismerőfüggvénye mindkét formát kezeli, és legfeljebb három tranzakciós kísérletet enged. Így újra ellenőrzi az üzleti szabályokat, tartós ütközés esetén pedig 409-es választ ad. A meglévő párhuzamos HTTP-teszt elvárt eredménye változatlan (201 és 400). Három új unit regressziós teszttel összesen 234 teszt fut sikeresen; a natív PostgreSQL CI ismételt futtatása szükséges.
+
 Továbbfejlesztési lehetőség: automatikus tokenfrissítés, mérkőzésjelentések külön felülete, bajnokságonként konfigurálható fair play szabály, külső hivatalos sorsolási eredmény rögzítése és Expo főverziófrissítés.

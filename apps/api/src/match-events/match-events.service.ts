@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { isTransactionWriteConflict } from '../prisma/transaction-conflict';
 import { MatchesService } from '../matches/matches.service';
 import { AuthService } from '../auth/auth.service';
 import { Role } from '../../generated/prisma/client';
@@ -37,7 +38,7 @@ export class MatchEventsService {
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2034') throw error;
+        if (!isTransactionWriteConflict(error)) throw error;
         if (attempt >= 2) throw new ConflictException('Concurrent match update; please reload and retry');
       }
     }

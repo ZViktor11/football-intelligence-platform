@@ -50,4 +50,21 @@ describe('MatchSquadsService starter limits', () => {
     await expect(service.create(candidate)).rejects.toThrow('at most 11');
     expect(db.$transaction).toHaveBeenCalledTimes(2);
   });
+  it('retries the PostgreSQL adapter conflict raised during commit and rechecks capacity', async () => {
+    const conflict = Object.assign(new Error('TransactionWriteConflict'), {
+      name: 'DriverAdapterError',
+      cause: { kind: 'TransactionWriteConflict', originalCode: '40001' },
+    });
+    db.$transaction.mockRejectedValueOnce(conflict);
+    await expect(service.create(candidate)).rejects.toThrow('at most 11');
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+  });
+  it('returns a conflict after three adapter conflicts', async () => {
+    db.$transaction.mockRejectedValue(Object.assign(new Error('TransactionWriteConflict'), {
+      name: 'DriverAdapterError',
+      cause: { kind: 'TransactionWriteConflict', originalCode: '40001' },
+    }));
+    await expect(service.create(candidate)).rejects.toThrow('Concurrent squad update');
+    expect(db.$transaction).toHaveBeenCalledTimes(3);
+  });
 });

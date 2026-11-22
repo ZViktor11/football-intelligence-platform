@@ -122,6 +122,17 @@ describe('MatchEventsService', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(3);
   });
 
+  it('retries a PostgreSQL adapter conflict raised during commit', async () => {
+    prismaMock.$transaction.mockRejectedValueOnce(Object.assign(new Error('TransactionWriteConflict'), {
+      name: 'DriverAdapterError',
+      cause: { kind: 'TransactionWriteConflict', originalCode: '40001' },
+    }));
+    matchesServiceMock.calculateMatchClock.mockReturnValue({ matchMinute: 23 });
+    prismaMock.matchEvent.create.mockImplementation(async ({ data }) => ({ id: 1, ...data }));
+    await expect(service.create({ type: 'GOAL', matchId: 1, teamId: 1 }, 2)).resolves.toBeDefined();
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+  });
+
   describe('sent-off players', () => {
     const red = { id: 10, type: 'RED_CARD', minute: 30, playerId: 1, playerOutId: null, playerInId: null };
     beforeEach(() => {

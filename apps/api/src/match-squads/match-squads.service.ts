@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { isTransactionWriteConflict } from '../prisma/transaction-conflict';
 import { Prisma } from '../../generated/prisma/client';
 import { CreateMatchSquadPlayerDto } from './dto/create-match-squad-player.dto';
 import { UpdateMatchSquadPlayerDto } from './dto/update-match-squad-player.dto';
@@ -21,9 +22,10 @@ export class MatchSquadsService {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
       } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError)) throw error;
-        if (error.code === 'P2002') throw new ConflictException('Player is already selected for this match');
-        if (error.code !== 'P2034') throw error;
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictException('Player is already selected for this match');
+        }
+        if (!isTransactionWriteConflict(error)) throw error;
         if (attempt >= 2) throw new ConflictException('Concurrent squad update; please reload and retry');
       }
     }
